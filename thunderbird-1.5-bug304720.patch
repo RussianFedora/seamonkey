@@ -1,0 +1,16 @@
+Index: mozilla/editor/txtsvc/src/nsTextServicesDocument.cpp
+===================================================================
+RCS file: /cvsroot/mozilla/editor/txtsvc/src/nsTextServicesDocument.cpp,v
+retrieving revision 1.59
+diff -u -w -r1.59 nsTextServicesDocument.cpp
+--- mozilla/editor/txtsvc/src/nsTextServicesDocument.cpp	22 Aug 2005 03:00:03 -0000	1.59
++++ mozilla/editor/txtsvc/src/nsTextServicesDocument.cpp	21 Nov 2005 23:37:13 -0000
+@@ -2494,6 +2494,8 @@
+ nsresult
+ nsTextServicesDocument::DeleteNode(nsIDOMNode *aChild)
+ {
++  NS_ENSURE_TRUE(mIterator, NS_ERROR_FAILURE);
++
+   //**** KDEBUG ****
+   // printf("** DeleteNode: 0x%.8x\n", aChild);
+   // fflush(stdout);

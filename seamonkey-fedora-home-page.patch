@@ -1,0 +1,24 @@
+--- mozilla/xpfe/browser/resources/locale/en-US/region.properties.smp4	2005-12-05 13:43:59.000000000 +0100
++++ mozilla/xpfe/browser/resources/locale/en-US/region.properties	2006-01-21 08:58:49.000000000 +0100
+@@ -1,5 +1,5 @@
+ # navigator.properties
+-homePageDefault=http://www.mozilla.org/
++homePageDefault=file:///usr/share/doc/HTML/index.html
+ shopKeyword=keyword:shop [Product]
+ quoteKeyword=keyword:quote [Enter symbol here]
+ localKeyword=keyword:zip [Your zip code]
+@@ -11,7 +11,7 @@
+ #
+ # all.js
+ #
+-browser.startup.homepage=http://www.mozilla.org/projects/seamonkey/start/
++browser.startup.homepage=file:///usr/share/doc/HTML/index.html
+ browser.throbber.url=http://www.mozilla.org/projects/seamonkey/
+ browser.search.defaulturl=http://www.google.com/search?q=
+ general.useragent.contentlocale=US
+@@ -21,4 +21,4 @@
+ 
+ #config.js
+ #
+-startup.homepage_override_url=http://www.mozilla.org/projects/seamonkey/start/
++startup.homepage_override_url=file:///usr/share/doc/HTML/index.html

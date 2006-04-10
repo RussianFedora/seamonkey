@@ -1,0 +1,25 @@
+Index: mozilla/xpcom/base/nsStackFrameUnix.cpp
+===================================================================
+RCS file: /cvsroot/mozilla/xpcom/base/nsStackFrameUnix.cpp,v
+retrieving revision 1.12
+diff -d -u -p -r1.12 nsStackFrameUnix.cpp
+--- mozilla/xpcom/base/nsStackFrameUnix.cpp	18 Apr 2004 14:18:12 -0000	1.12
++++ mozilla/xpcom/base/nsStackFrameUnix.cpp	2 Feb 2006 05:29:00 -0000
+@@ -90,6 +90,9 @@ void DemangleSymbol(const char * aSymbol
+ 
+ void DumpStackToFile(FILE* aStream)
+ {
++  fprintf(aStream, "Stacktrace disabled for now.\n"
++                   "See https://bugzilla.mozilla.org/show_bug.cgi?id=323853\n");
++#if 0
+   jmp_buf jb;
+   setjmp(jb);
+ 
+@@ -138,6 +141,7 @@ void DumpStackToFile(FILE* aStream)
+               symbol, off, info.dli_fname, foff);
+     }
+   }
++#endif
+ }
+ 
+ #elif defined(__sun) && (defined(__sparc) || defined(sparc) || defined(__i386) || defined(i386))

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Seamonkey Web Browser
+Comment=Browse the web with Seamonkey
+Exec=seamonkey %u
+Icon=seamonkey-icon
+Terminal=0
+Type=Application
+MimeType=text/html;text/xml;application/xhtml+xml;application/vnd.mozilla.xul+xml;text/mml;
+Categories=Network;Application;X-Fedora;
+X-Desktop-File-Install-Version=0.10
+

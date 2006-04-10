@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Seamonkey Mail
+Comment=Read Mail with Seamonkey
+Exec=/usr/bin/seamonkey -mail
+Icon=seamonkey-mail-icon
+Terminal=0
+Type=Application
+Categories=X-Red-Hat-Extra;Application;Network;
