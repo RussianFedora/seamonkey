@@ -10,7 +10,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0
-Release:        10%{?dist}
+Release:        11%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -61,8 +61,8 @@ BuildRequires:  libXt-devel
 BuildRequires:  pango-devel >= %{pango_version}
 BuildRequires:  nspr-devel >= %{nspr_version}
 BuildRequires:  nss-devel >= %{nss_version}
-Prereq:         fileutils perl
-Prereq:         /usr/bin/killall
+BuildRequires:  fileutils
+BuildRequires:  desktop-file-utils >= %{desktop_file_utils_version}
 PreReq:         desktop-file-utils >= %{desktop_file_utils_version}
 
 AutoProv: 0
@@ -408,6 +408,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Tue Apr 11 2006 Kai Engert <kengert@redhat.com> 1.0-11
+- Fix PreReq statements
 * Tue Apr 11 2006 Kai Engert <kengert@redhat.com> 1.0-10
 - Added libXt-devel BuildRequires
 * Mon Apr 10 2006 Kai Engert <kengert@redhat.com> 1.0-9
