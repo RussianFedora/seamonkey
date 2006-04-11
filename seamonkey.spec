@@ -10,7 +10,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0
-Release:        9%{?dist}
+Release:        10%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -57,6 +57,7 @@ BuildRequires:  perl
 BuildRequires:  libIDL-devel
 BuildRequires:  glib2-devel
 BuildRequires:  gtk2-devel
+BuildRequires:  libXt-devel
 BuildRequires:  pango-devel >= %{pango_version}
 BuildRequires:  nspr-devel >= %{nspr_version}
 BuildRequires:  nss-devel >= %{nss_version}
@@ -407,6 +408,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Tue Apr 11 2006 Kai Engert <kengert@redhat.com> 1.0-10
+- Added libXt-devel BuildRequires
 * Mon Apr 10 2006 Kai Engert <kengert@redhat.com> 1.0-9
 - Added dist suffix to release
 * Fri Mar 17 2006 Kai Engert <kengert@redhat.com> 1.0-8
