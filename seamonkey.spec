@@ -9,8 +9,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.0
-Release:        11%{?dist}
+Version:        1.0.1
+Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -33,14 +33,13 @@ Patch1:         firefox-1.0-prdtoa.patch
 Patch3:         firefox-1.1-nss-system-nspr.patch
 Patch4:         firefox-1.5-with-system-nss.patch
 Patch5:         seamonkey-disable-visibility.patch
-Patch6:         firefox-1.5.0.1-dumpstack.patch
+Patch6:         seamonkey-1.0.1-dumpstack.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
 Patch82:        pango-cairo.patch
 Patch83:        seamonkey-cairo-bug5136.patch
 Patch101:       thunderbird-0.7.3-gnome-uriloader.patch
-Patch102:       thunderbird-1.5-bug304720.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch227:       mozilla-1.4.1-ppc64.patch
@@ -98,7 +97,6 @@ application formerly known as Mozilla Application Suite.
 %patch82 -p0
 %patch83 -p1
 %patch101 -p1 -b .gnome-uriloader
-%patch102 -p1
 %patch220 -p1
 %patch225 -p1
 %patch227 -p1
@@ -408,6 +406,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Apr 14 2006 Kai Engert <kengert@redhat.com> 1.0.1-1
+- Update to SeaMonkey 1.0.1 release
 * Tue Apr 11 2006 Kai Engert <kengert@redhat.com> 1.0-11
 - Fix PreReq statements
 * Tue Apr 11 2006 Kai Engert <kengert@redhat.com> 1.0-10

@@ -1,0 +1,20 @@
+--- mozilla/xpcom/base/nsStackFrameUnix.cpp.prestackdisable	2006-04-14 02:30:15.000000000 +0200
++++ mozilla/xpcom/base/nsStackFrameUnix.cpp	2006-04-14 02:31:02.000000000 +0200
+@@ -88,6 +88,9 @@
+ 
+ void DumpStackToFile(FILE* aStream)
+ {
++  fprintf(aStream, "Stacktrace disabled for now.\n"
++                   "See https://bugzilla.mozilla.org/show_bug.cgi?id=323853\n");
++#if 0
+   // Stack walking code courtesy Kipp's "leaky".
+ 
+   // Get the frame pointer
+@@ -128,6 +131,7 @@
+               symbol, off, info.dli_fname, foff);
+     }
+   }
++#endif
+ }
+ 
+ #elif defined(__sun) && (defined(__sparc) || defined(sparc) || defined(__i386) || defined(i386))
