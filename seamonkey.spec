@@ -10,7 +10,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.4
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -406,6 +406,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Tue Aug 15 2006 Kai Engert <kengert@redhat.com> 1.0.4-6
+- Yet another forgotten patch file.
 * Tue Aug 15 2006 Kai Engert <kengert@redhat.com> 1.0.4-5
 - Commit forgotten visibility patch file.
 * Thu Aug 04 2006 Kai Engert <kengert@redhat.com> 1.0.4-4
