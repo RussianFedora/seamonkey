@@ -9,8 +9,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.0.2
-Release:        1%{?dist}
+Version:        1.0.4
+Release:        4%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -32,8 +32,9 @@ Source100:      find-external-requires
 Patch1:         firefox-1.0-prdtoa.patch
 Patch3:         firefox-1.1-nss-system-nspr.patch
 Patch4:         firefox-1.5-with-system-nss.patch
-Patch5:         seamonkey-disable-visibility.patch
+Patch5:         firefox-1.1-visibility.patch
 Patch6:         seamonkey-1.0.1-dumpstack.patch
+Patch7:	        thunderbird-mimeeobj-externalc.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
@@ -90,6 +91,7 @@ application formerly known as Mozilla Application Suite.
 %endif
 
 %patch6 -p1
+%patch7 -p1
 %patch21 -p1
 %patch22 -p1
 %patch42 -p0
@@ -404,6 +406,12 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Aug 04 2006 Kai Engert <kengert@redhat.com> 1.0.4-4
+- Use a different patch to disable visibility.
+* Thu Aug 04 2006 Kai Engert <kengert@redhat.com> 1.0.4-3
+- Fix a build failure in mailnews mime code.
+* Thu Aug 03 2006 Kai Engert <kengert@redhat.com> 1.0.4-2
+- SeaMonkey 1.0.4
 * Wed Jun 07 2006 Kai Engert <kengert@redhat.com> 1.0.2-1
 - Update to SeaMonkey 1.0.2 release
 * Fri Apr 14 2006 Kai Engert <kengert@redhat.com> 1.0.1-1
