@@ -1,7 +1,8 @@
 %define desktop_file_utils_version 0.9
-%define nspr_version 4.6
-%define nss_version 3.11
-%define pango_version 1.6.0
+%define cairo_version 0.5
+
+%define minimum_build_nspr_version 4.6.1
+%define minimum_build_nss_version 3.11.1
 
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/mozilla
@@ -10,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.4
-Release:        6%{?dist}
+Release:        7%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -38,31 +39,57 @@ Patch7:	        thunderbird-mimeeobj-externalc.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
-Patch82:        pango-cairo.patch
+Patch81:        firefox-1.5-nopangoxft.patch
+Patch82:        firefox-1.5-pango-mathml.patch
+Patch91 :       firefox-1.5-pango-ua.patch
 Patch101:       thunderbird-0.7.3-gnome-uriloader.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch227:       mozilla-1.4.1-ppc64.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
-Patch999:       seamonkey-configure.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
+BuildRequires:  nss-devel >= %{minimum_build_nss_version}
+BuildRequires:  cairo-devel >= %{cairo_version}
 BuildRequires:  libpng-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  zlib-devel
 BuildRequires:  zip
-BuildRequires:  perl
 BuildRequires:  libIDL-devel
-BuildRequires:  glib2-devel
-BuildRequires:  gtk2-devel
-BuildRequires:  libXt-devel
-BuildRequires:  pango-devel >= %{pango_version}
-BuildRequires:  nspr-devel >= %{nspr_version}
-BuildRequires:  nss-devel >= %{nss_version}
-BuildRequires:  fileutils
 BuildRequires:  desktop-file-utils >= %{desktop_file_utils_version}
+BuildRequires:  gtk2-devel
+BuildRequires:  gnome-vfs2-devel
+BuildRequires:  libgnome-devel
+BuildRequires:  libgnomeui-devel
+BuildRequires:  krb5-devel
+BuildRequires:  pango-devel
+BuildRequires:  freetype-devel >= 2.1.9
+BuildRequires:  glib2-devel
+BuildRequires:  libXt-devel
+BuildRequires:  libXrender-devel
+BuildRequires:  fileutils
+BuildRequires:  perl
+
 PreReq:         desktop-file-utils >= %{desktop_file_utils_version}
+
+%global nspr_build_time_version %(nspr-config --version)
+
+%if "%{?nspr_build_time_version}" > "0"
+Requires: nspr >= %{nspr_build_time_version}
+%else
+Requires: nspr >= %{minimum_build_nspr_version}
+%endif
+
+%global nss_build_time_version %(nss-config --version)
+
+%if "%{?nss_build_time_version}" > "0"
+Requires: nss >= %{nss_build_time_version}
+%else
+Requires: nss >= %{minimum_build_nss_version}
+%endif
+
 
 AutoProv: 0
 %define _use_internal_dependency_generator 0
@@ -95,14 +122,15 @@ application formerly known as Mozilla Application Suite.
 %patch21 -p1
 %patch22 -p1
 %patch42 -p0
-%patch82 -p0
+%patch81 -p1
+%patch82 -p1
+%patch91 -p0
 %patch101 -p1 -b .gnome-uriloader
 %patch220 -p1
 %patch225 -p1
 %patch227 -p1
 %patch301 -p1
 %patch304 -p0
-%patch999 -p1
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -406,6 +434,12 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Sep 06 2006 Kai Engert <kengert@redhat.com> 1.0.4-7
+- Synch patches with those found in the Firefox package.
+- Add missing, clean up BuildRequires
+- Use --enable-system-cairo
+- Use a dynamic approach to require at least the NSPR/NSS 
+  library release used at build time.
 * Tue Aug 15 2006 Kai Engert <kengert@redhat.com> 1.0.4-6
 - Yet another forgotten patch file.
 * Tue Aug 15 2006 Kai Engert <kengert@redhat.com> 1.0.4-5
