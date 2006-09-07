@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.4
-Release:        7%{?dist}
+Release:        8%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -114,7 +114,7 @@ application formerly known as Mozilla Application Suite.
 # It works on i386 so leave it alone there.  Disable elsewhere.
 # See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=20297
 %ifnarch i386
-%patch5  -p1
+%patch5  -p0
 %endif
 
 %patch6 -p1
@@ -434,6 +434,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Sep 06 2006 Kai Engert <kengert@redhat.com> 1.0.4-8
+- patch5 -p0
 * Wed Sep 06 2006 Kai Engert <kengert@redhat.com> 1.0.4-7
 - Synch patches with those found in the Firefox package.
 - Add missing, clean up BuildRequires
