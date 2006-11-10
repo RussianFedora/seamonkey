@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.6
-Release:        0.6%{?dist}
+Release:        0.6.1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -258,9 +258,6 @@ pushd `pwd`
   echo "skin,install,select,classic/1.0" >> chrome/lang/default.txt
   echo "locale,install,select,en-US" >> chrome/lang/default.txt
 
-  # set up the chrome rdf files
-  LD_LIBRARY_PATH=`pwd`:`pwd`/.. MOZILLA_FIVE_HOME=`pwd` MOZ_DISABLE_GNOME=1 ./regchrome
-
   # fix permissions of the chrome directories
   /usr/bin/find . -type d -perm 0700 -exec chmod 755 {} \; || :
 
@@ -432,6 +429,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Nov 09 2006 Kai Engert <kengert@redhat.com> 1.0.6-0.6.1
+- Do not run regchrome.
 * Thu Nov 09 2006 Kai Engert <kengert@redhat.com> 1.0.6-0.6
 - SeaMonkey 1.0.6
 * Thu Sep 14 2006 Kai Engert <kengert@redhat.com> 1.0.5-1
