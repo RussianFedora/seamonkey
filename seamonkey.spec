@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.6
-Release:        1%{?dist}
+Release:        2{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -258,9 +258,6 @@ pushd `pwd`
   echo "skin,install,select,classic/1.0" >> chrome/lang/default.txt
   echo "locale,install,select,en-US" >> chrome/lang/default.txt
 
-  # set up the chrome rdf files
-  LD_LIBRARY_PATH=`pwd`:`pwd`/.. MOZILLA_FIVE_HOME=`pwd` MOZ_DISABLE_GNOME=1 ./regchrome
-
   # fix permissions of the chrome directories
   /usr/bin/find . -type d -perm 0700 -exec chmod 755 {} \; || :
 
@@ -322,6 +319,8 @@ for overlay in {"browser","global"}; do
 done
 touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
 %{__mkdir_p} $RPM_BUILD_ROOT%{mozdir}/components/myspell
+touch $RPM_BUILD_ROOT%{mozdir}/components/compreg.dat
+touch $RPM_BUILD_ROOT%{mozdir}/components/xpti.dat
 
 
 %clean
@@ -342,8 +341,8 @@ update-desktop-database %{_datadir}/applications
 %{_datadir}/pixmaps/seamonkey-icon.png
 %{_datadir}/pixmaps/seamonkey-mail-icon.png
 
-%verify (not md5 mtime size) %{mozdir}/components/compreg.dat
-%verify (not md5 mtime size) %{mozdir}/components/xpti.dat
+%ghost %{mozdir}/components/compreg.dat
+%ghost %{mozdir}/components/xpti.dat
 
 %{_mandir}/man1/seamonkey.1.gz
 
@@ -384,11 +383,7 @@ update-desktop-database %{_datadir}/applications
 
 %{mozdir}/defaults/pref/all-fedora.js
 
-
 %ghost %{mozdir}/chrome/chrome.rdf
-%ghost %{mozdir}/chrome/overlays.rdf
-%ghost %{mozdir}/chrome/stylesheets.rdf
-
 
 %ghost %{mozdir}/chrome/overlayinfo/browser/skin/stylesheets.rdf
 %ghost %{mozdir}/chrome/overlayinfo/global/skin/stylesheets.rdf
@@ -432,6 +427,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Nov 10 2006 Kai Engert <kengert@redhat.com> 1.0.6-2
+- Do not run regchrome.
+- Fix some .dat and .rdf ghost files.
 * Thu Nov 09 2006 Kai Engert <kengert@redhat.com> 1.0.6-1
 - SeaMonkey 1.0.6
 * Thu Sep 14 2006 Kai Engert <kengert@redhat.com> 1.0.5-1
