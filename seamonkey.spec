@@ -10,8 +10,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.0.6
-Release:        2%{?dist}
+Version:        1.0.7
+Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -427,6 +427,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Sat Dec 23 2006 Kai Engert <kengert@redhat.com> 1.0.7-1
+- SeaMonkey 1.0.7
 * Fri Nov 10 2006 Kai Engert <kengert@redhat.com> 1.0.6-2
 - Do not run regchrome.
 - Fix some .dat and .rdf ghost files.
