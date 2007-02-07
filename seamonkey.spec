@@ -10,7 +10,7 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.0.7
+Version:        1.1
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
@@ -31,20 +31,19 @@ Source20:       seamonkey-fedora-default-prefs.js
 Source100:      find-external-requires
 
 Patch1:         firefox-1.0-prdtoa.patch
-Patch3:         firefox-1.1-nss-system-nspr.patch
-Patch4:         firefox-1.5-with-system-nss.patch
-Patch5:         firefox-1.1-visibility.patch
-Patch6:         seamonkey-1.0.1-dumpstack.patch
+Patch2:         firefox-2.0-link-layout.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
 Patch81:        firefox-1.5-nopangoxft.patch
-Patch82:        firefox-1.5-pango-mathml.patch
-Patch91 :       firefox-1.5-pango-ua.patch
-Patch101:       thunderbird-0.7.3-gnome-uriloader.patch
+Patch83:        firefox-1.5-pango-cursor-position.patch
+Patch84:        firefox-2.0-pango-printing.patch
+Patch91:        thunderbird-0.7.3-gnome-uriloader.patch
+Patch101:       firefox-1.5-embedwindow-visibility.patch
+Patch102:       firefox-1.5-theme-change.patch
+Patch103:       firefox-1.5-dnd-nograb.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
-Patch227:       mozilla-1.4.1-ppc64.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
 
@@ -70,6 +69,12 @@ BuildRequires:  libXt-devel
 BuildRequires:  libXrender-devel
 BuildRequires:  fileutils
 BuildRequires:  perl
+
+Obsoletes: seamonkey-chat
+Obsoletes: seamonkey-devel
+Obsoletes: seamonkey-dom-inspector
+Obsoletes: seamonkey-js-debugger
+Obsoletes: seamonkey-mail
 
 PreReq:         desktop-file-utils >= %{desktop_file_utils_version}
 
@@ -106,27 +111,19 @@ application formerly known as Mozilla Application Suite.
 
 %setup -q -n mozilla
 %patch1  -p0
-%patch3  -p1
-%patch4  -p1
-
-# Pragma visibility is broken on most platforms for some reason.
-# It works on i386 so leave it alone there.  Disable elsewhere.
-# See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=20297
-%ifnarch i386
-%patch5  -p0
-%endif
-
-%patch6 -p1
+%patch2  -p1
 %patch21 -p1
 %patch22 -p1
 %patch42 -p0
 %patch81 -p1
-%patch82 -p1
-%patch91 -p0
-%patch101 -p1 -b .gnome-uriloader
+%patch83 -p1
+%patch84 -p0
+%patch91 -p1 -b .gnome-uriloader
+%patch101 -p0 -b .embedwindow-visibility
+%patch102 -p0 -b .theme-change
+%patch103 -p1 -b .dnd-nograb
 %patch220 -p1
 %patch225 -p1
-%patch227 -p1
 %patch301 -p1
 %patch304 -p0
 
@@ -427,6 +424,12 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.1-1
+- Update to SeaMonkey 1.1
+- Pull in patches used by Firefox Fedora RPM package.
+- Fix the DND implementation to not grab, so it works with new GTK+.
+- Fix upgrade path from FC-5 by obsoleting the seamonkey subset
+  packages which recently obsoleted mozilla in FC-5.
 * Sat Dec 23 2006 Kai Engert <kengert@redhat.com> 1.0.7-1
 - SeaMonkey 1.0.7
 * Fri Nov 10 2006 Kai Engert <kengert@redhat.com> 1.0.6-2

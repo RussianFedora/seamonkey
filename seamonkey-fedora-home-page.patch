@@ -1,13 +1,13 @@
---- mozilla/xpfe/browser/resources/locale/en-US/region.properties.smp4	2005-12-05 13:43:59.000000000 +0100
-+++ mozilla/xpfe/browser/resources/locale/en-US/region.properties	2006-01-21 08:58:49.000000000 +0100
+--- mozilla/xpfe/browser/resources/locale/en-US/region.properties.regprop	2007-02-07 04:51:18.000000000 +0100
++++ mozilla/xpfe/browser/resources/locale/en-US/region.properties	2007-02-07 04:52:01.000000000 +0100
 @@ -1,5 +1,5 @@
  # navigator.properties
 -homePageDefault=http://www.mozilla.org/
 +homePageDefault=file:///usr/share/doc/HTML/index.html
- shopKeyword=keyword:shop [Product]
- quoteKeyword=keyword:quote [Enter symbol here]
- localKeyword=keyword:zip [Your zip code]
-@@ -11,7 +11,7 @@
+ keywordList=http://home.netscape.com/escapes/keywords
+ webmailKeyword=http://webmail.netscape.com
+ fallbackDefaultSearchURL=http://www.google.com/search?q=
+@@ -7,7 +7,7 @@
  #
  # all.js
  #
@@ -16,7 +16,7 @@
  browser.throbber.url=http://www.mozilla.org/projects/seamonkey/
  browser.search.defaulturl=http://www.google.com/search?q=
  general.useragent.contentlocale=US
-@@ -21,4 +21,4 @@
+@@ -17,4 +17,4 @@
  
  #config.js
  #

@@ -1,7 +1,10 @@
---- mozilla/xpinstall/packager/packages-unix.smp5	2005-12-22 16:29:39.000000000 +0100
-+++ mozilla/xpinstall/packager/packages-unix	2006-01-21 09:03:04.000000000 +0100
-@@ -45,9 +45,6 @@
+--- mozilla/xpinstall/packager/packages-unix.nsprpack	2007-02-07 04:21:44.000000000 +0100
++++ mozilla/xpinstall/packager/packages-unix	2007-02-07 04:29:55.000000000 +0100
+@@ -42,12 +42,8 @@
+ bin/defaults/messenger/SpamCatcher.sfd
+ bin/defaults/messenger/SpamPal.sfd
  
+-
  [xpcom]
  bin/libmozjs.so
 -bin/libnspr4.so
@@ -10,7 +13,19 @@
  bin/cpu/sparcv8plus/libnspr_flt4.so
  bin/libxpcom.so
  bin/libxpcom_core.so
-@@ -463,18 +460,13 @@
+@@ -58,6 +54,11 @@
+ bin/libxpcom_compat.so
+ bin/components/libxpcom_compat_c.so
+ 
++[nspr]
++bin/libnspr4.so
++bin/libplc4.so
++bin/libplds4.so
++
+ [browser]
+ bin/seamonkey
+ bin/seamonkey-bin
+@@ -469,13 +470,17 @@
  bin/components/talkback/*
  
  [psm]
@@ -21,29 +36,20 @@
  bin/components/pipnss.xpt
  bin/components/libpippki.so
  bin/components/pippki.xpt
--bin/libnss3.so
--bin/libsmime3.so
- bin/libsoftokn3.chk
--bin/libsoftokn3.so
--bin/libssl3.so
- bin/chrome/pipnss.jar
- bin/chrome/pippki.jar
- ; These are required for solaris 32-bit builds
-@@ -499,5 +491,17 @@
- bin/components/spellchecker.xpt
- bin/components/myspell/*
- 
-+[nspr]
-+bin/libnspr4.so
-+bin/libplc4.so
-+bin/libplds4.so
++bin/chrome/pipnss.jar
++bin/chrome/pippki.jar
 +
 +[nss]
 +bin/libnssckbi.so
-+bin/libnss3.so
-+bin/libsmime3.so
-+bin/libsoftokn3.so
-+bin/libssl3.so
-+
- [reporter]
- bin/chrome/reporter.jar
+ bin/libnss3.so
+ bin/libsmime3.so
+ bin/libsoftokn3.chk
+@@ -493,8 +498,6 @@
+ bin/libfreebl_64int_3.chk
+ bin/libfreebl_64int_3.so
+ bin/libssl3.so
+-bin/chrome/pipnss.jar
+-bin/chrome/pippki.jar
+ 
+ [inspector]
+ bin/components/inspector-cmdline.js
