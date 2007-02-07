@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -424,7 +424,7 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
-* Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.1-1
+* Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.1-2
 - Update to SeaMonkey 1.1
 - Pull in patches used by Firefox Fedora RPM package.
 - Fix the DND implementation to not grab, so it works with new GTK+.
