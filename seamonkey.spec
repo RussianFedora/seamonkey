@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.7
-Release:        0.6%{?dist}
+Release:        0.6.1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -42,6 +42,7 @@ Patch81:        firefox-1.5-nopangoxft.patch
 Patch82:        firefox-1.5-pango-mathml.patch
 Patch91 :       firefox-1.5-pango-ua.patch
 Patch101:       thunderbird-0.7.3-gnome-uriloader.patch
+Patch103:       firefox-1.5-dnd-nograb.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch227:       mozilla-1.4.1-ppc64.patch
@@ -70,6 +71,12 @@ BuildRequires:  libXt-devel
 BuildRequires:  libXrender-devel
 BuildRequires:  fileutils
 BuildRequires:  perl
+
+Obsoletes: seamonkey-chat
+Obsoletes: seamonkey-devel
+Obsoletes: seamonkey-dom-inspector
+Obsoletes: seamonkey-js-debugger
+Obsoletes: seamonkey-mail
 
 PreReq:         desktop-file-utils >= %{desktop_file_utils_version}
 
@@ -124,6 +131,7 @@ application formerly known as Mozilla Application Suite.
 %patch82 -p1
 %patch91 -p0
 %patch101 -p1 -b .gnome-uriloader
+%patch103 -p1
 %patch220 -p1
 %patch225 -p1
 %patch227 -p1
@@ -427,6 +435,10 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.0.7-0.6.1
+- Fix the DND implementation to not grab, so it works with new GTK+.
+- Fix upgrade path from FC-5 by obsoleting the seamonkey subset 
+  packages which recently obsoleted mozilla in FC-5.
 * Sat Dec 23 2006 Kai Engert <kengert@redhat.com> 1.0.7-0.6
 - SeaMonkey 1.0.7
 * Thu Nov 09 2006 Kai Engert <kengert@redhat.com> 1.0.6-0.6.2
