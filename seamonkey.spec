@@ -10,8 +10,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.0.7
-Release:        0.6.1%{?dist}
+Version:        1.0.8
+Release:        0.6.0%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -435,6 +435,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Feb 28 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.0
+- SeaMonkey 1.0.8
 * Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.0.7-0.6.1
 - Fix the DND implementation to not grab, so it works with new GTK+.
 - Fix upgrade path from FC-5 by obsoleting the seamonkey subset 
