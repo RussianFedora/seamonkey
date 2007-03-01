@@ -1,5 +1,10 @@
---- mozilla/xpinstall/packager/packages-unix.smp5	2005-12-22 16:29:39.000000000 +0100
-+++ mozilla/xpinstall/packager/packages-unix	2006-01-21 09:03:04.000000000 +0100
+Index: mozilla/xpinstall/packager/packages-unix
+===================================================================
+RCS file: /cvsroot/mozilla/xpinstall/packager/packages-unix,v
+retrieving revision 1.311.4.4.4.2
+diff -u -r1.311.4.4.4.2 packages-unix
+--- mozilla/xpinstall/packager/packages-unix	19 Dec 2006 22:07:38 -0000	1.311.4.4.4.2
++++ mozilla/xpinstall/packager/packages-unix	1 Mar 2007 16:38:10 -0000
 @@ -45,9 +45,6 @@
  
  [xpcom]
@@ -10,7 +15,7 @@
  bin/cpu/sparcv8plus/libnspr_flt4.so
  bin/libxpcom.so
  bin/libxpcom_core.so
-@@ -463,18 +460,13 @@
+@@ -463,30 +460,12 @@
  bin/components/talkback/*
  
  [psm]
@@ -23,13 +28,25 @@
  bin/components/pippki.xpt
 -bin/libnss3.so
 -bin/libsmime3.so
- bin/libsoftokn3.chk
+-bin/libsoftokn3.chk
 -bin/libsoftokn3.so
+-bin/libfreebl3.chk
+-bin/libfreebl3.so
+-bin/libfreebl_32fpu_3.chk
+-bin/libfreebl_32fpu_3.so
+-bin/libfreebl_32int_3.chk
+-bin/libfreebl_32int_3.so
+-bin/libfreebl_32int64_3.chk
+-bin/libfreebl_32int64_3.so
+-bin/libfreebl_64fpu_3.chk
+-bin/libfreebl_64fpu_3.so
+-bin/libfreebl_64int_3.chk
+-bin/libfreebl_64int_3.so
 -bin/libssl3.so
  bin/chrome/pipnss.jar
  bin/chrome/pippki.jar
- ; These are required for solaris 32-bit builds
-@@ -499,5 +491,17 @@
+ 
+@@ -506,5 +485,30 @@
  bin/components/spellchecker.xpt
  bin/components/myspell/*
  
@@ -42,7 +59,20 @@
 +bin/libnssckbi.so
 +bin/libnss3.so
 +bin/libsmime3.so
++bin/libsoftokn3.chk
 +bin/libsoftokn3.so
++bin/libfreebl3.chk
++bin/libfreebl3.so
++bin/libfreebl_32fpu_3.chk
++bin/libfreebl_32fpu_3.so
++bin/libfreebl_32int_3.chk
++bin/libfreebl_32int_3.so
++bin/libfreebl_32int64_3.chk
++bin/libfreebl_32int64_3.so
++bin/libfreebl_64fpu_3.chk
++bin/libfreebl_64fpu_3.so
++bin/libfreebl_64int_3.chk
++bin/libfreebl_64int_3.so
 +bin/libssl3.so
 +
  [reporter]

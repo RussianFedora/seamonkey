@@ -12,15 +12,7 @@
  
  #include "nsString.h"
  #include "nsIPersistentProperties2.h"
-@@ -54,6 +53,7 @@
- #include "nsCompressedCharMap.h"
- 
- #undef DEBUG_CUSTOM_ENCODER
-+#define DEBUG_CUSTOM_ENCODER 1
- 
- G_DEFINE_TYPE (MozillaDecoder, mozilla_decoder, PANGO_TYPE_FC_DECODER)
- 
-@@ -145,6 +145,13 @@ mozilla_decoders_init(void)
+@@ -145,6 +144,13 @@ mozilla_decoders_init(void)
      if (initialized)
          return 0;
  
@@ -34,7 +26,7 @@
      encoder_hash = g_hash_table_new(g_str_hash, g_str_equal);
      cmap_hash = g_hash_table_new(g_str_hash, g_str_equal);
      wide_hash = g_hash_table_new(g_str_hash, g_str_equal);
-@@ -208,7 +215,7 @@ mozilla_decoders_init(void)
+@@ -208,7 +214,7 @@ mozilla_decoders_init(void)
          }
      }
  

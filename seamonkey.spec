@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.8
-Release:        0.6.0%{?dist}
+Release:        0.6.1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -31,21 +31,27 @@ Source20:       seamonkey-fedora-default-prefs.js
 Source100:      find-external-requires
 
 Patch1:         firefox-1.0-prdtoa.patch
-Patch3:         firefox-1.1-nss-system-nspr.patch
-Patch4:         firefox-1.5-with-system-nss.patch
+Patch3:         firefox-1.5.0.10-nss-system-nspr.patch
+Patch4:         firefox-1.5.0.10-with-system-nss.patch
 Patch5:         firefox-1.1-visibility.patch
 Patch6:         seamonkey-1.0.1-dumpstack.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
+
+# font system fixes
 Patch81:        firefox-1.5-nopangoxft.patch
 Patch82:        firefox-1.5-pango-mathml.patch
-Patch91 :       firefox-1.5-pango-ua.patch
+Patch83:        firefox-1.5-pango-cursor-position.patch
+Patch84:        firefox-1.5-pango-printing.patch
+Patch85:        firefox-1.5-pango-cursor-position-more.patch
+Patch86:        firefox-1.5-pango-justified-range.patch
+Patch87:        firefox-1.5-pango-underline.patch
+Patch88:        firefox-1.5-xft-rangewidth.patch
+
 Patch101:       thunderbird-0.7.3-gnome-uriloader.patch
-Patch103:       firefox-1.5-dnd-nograb.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
-Patch227:       mozilla-1.4.1-ppc64.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
 
@@ -129,12 +135,15 @@ application formerly known as Mozilla Application Suite.
 %patch42 -p0
 %patch81 -p1
 %patch82 -p1
-%patch91 -p0
+%patch83 -p1
+%patch84 -p1
+%patch85 -p1
+%patch86 -p1
+%patch87 -p1
+%patch88 -p1
 %patch101 -p1 -b .gnome-uriloader
-%patch103 -p1
 %patch220 -p1
 %patch225 -p1
-%patch227 -p1
 %patch301 -p1
 %patch304 -p0
 
@@ -435,8 +444,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
-* Wed Feb 28 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.0
+* Wed Mar 01 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.1
 - SeaMonkey 1.0.8
+- Synch set of patches with those used in Firefox.
 * Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.0.7-0.6.1
 - Fix the DND implementation to not grab, so it works with new GTK+.
 - Fix upgrade path from FC-5 by obsoleting the seamonkey subset 
