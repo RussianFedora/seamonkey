@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -41,7 +41,6 @@ Patch84:        firefox-2.0-pango-printing.patch
 Patch91:        thunderbird-0.7.3-gnome-uriloader.patch
 Patch101:       firefox-1.5-embedwindow-visibility.patch
 Patch102:       firefox-1.5-theme-change.patch
-Patch103:       firefox-1.5-dnd-nograb.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
@@ -121,7 +120,6 @@ application formerly known as Mozilla Application Suite.
 %patch91 -p1 -b .gnome-uriloader
 %patch101 -p0 -b .embedwindow-visibility
 %patch102 -p0 -b .theme-change
-%patch103 -p1 -b .dnd-nograb
 %patch220 -p1
 %patch225 -p1
 %patch301 -p1
@@ -424,7 +422,7 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
-* Wed Feb 28 2007 Kai Engert <kengert@redhat.com> 1.1.1-1
+* Wed Feb 28 2007 Kai Engert <kengert@redhat.com> 1.1.1-2
 - SeaMonkey 1.1.1
 * Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.1-2
 - Update to SeaMonkey 1.1
