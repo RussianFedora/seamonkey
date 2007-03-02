@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.8
-Release:        0.6.1%{?dist}
+Release:        0.6.2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -141,6 +141,14 @@ application formerly known as Mozilla Application Suite.
 %patch86 -p1
 %patch87 -p1
 %patch88 -p1
+pushd gfx/src/ps
+  # This sort of sucks, but it works for now.
+  ln -s ../gtk/nsFontMetricsPango.h .
+  ln -s ../gtk/nsFontMetricsPango.cpp .
+  ln -s ../gtk/mozilla-decoder.h .
+  ln -s ../gtk/mozilla-decoder.cpp .
+popd
+
 %patch101 -p1 -b .gnome-uriloader
 %patch220 -p1
 %patch225 -p1
@@ -444,7 +452,7 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
-* Wed Mar 01 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.1
+* Wed Mar 01 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.2
 - SeaMonkey 1.0.8
 - Synch set of patches with those used in Firefox.
 * Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.0.7-0.6.1
