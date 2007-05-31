@@ -10,8 +10,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.0.8
-Release:        0.6.2%{?dist}
+Version:        1.0.9
+Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -20,6 +20,7 @@ Source0:        seamonkey-%{version}.source.tar.bz2
 Source1:        seamonkey.sh.in
 Source2:        seamonkey-icon.png
 Source4:        seamonkey.desktop
+Source6:        nss-clobber.sh
 Source7:        seamonkey-make-package.pl
 Source10:       seamonkey-mozconfig
 Source12:       seamonkey-mail.desktop
@@ -161,6 +162,7 @@ popd
 # set up our default bookmarks
 %{__cp} %{SOURCE19} $RPM_BUILD_DIR/mozilla/profile/defaults/bookmarks.html
 
+sh %{SOURCE6} > /dev/null
 
 %build
 
@@ -452,6 +454,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu May 31 2007 Kai Engert <kengert@redhat.com> 1.0.9-1
+- Update to 1.0.9
 * Wed Mar 01 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.2
 - SeaMonkey 1.0.8
 - Synch set of patches with those used in Firefox.
