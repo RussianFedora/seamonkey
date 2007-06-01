@@ -10,8 +10,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.1
-Release:        2%{?dist}
+Version:        1.1.2
+Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -34,12 +34,12 @@ Patch1:         firefox-1.0-prdtoa.patch
 Patch2:         firefox-2.0-link-layout.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
+Patch41:        firefox-2.0.0.4-undo-uriloader.patch
 Patch42:        firefox-1.1-uriloader.patch
 Patch81:        firefox-1.5-nopangoxft.patch
 Patch83:        firefox-1.5-pango-cursor-position.patch
 Patch84:        firefox-2.0-pango-printing.patch
 Patch91:        thunderbird-0.7.3-gnome-uriloader.patch
-Patch101:       firefox-1.5-embedwindow-visibility.patch
 Patch102:       firefox-1.5-theme-change.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
@@ -113,12 +113,12 @@ application formerly known as Mozilla Application Suite.
 %patch2  -p1
 %patch21 -p1
 %patch22 -p1
+%patch41 -p1
 %patch42 -p0
 %patch81 -p1
 %patch83 -p1
 %patch84 -p0
 %patch91 -p1 -b .gnome-uriloader
-%patch101 -p0 -b .embedwindow-visibility
 %patch102 -p0 -b .theme-change
 %patch220 -p1
 %patch225 -p1
@@ -422,6 +422,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu May 31 2007 Kai Engert <kengert@redhat.com> 1.1.2-1
+- SeaMonkey 1.1.2
 * Wed Feb 28 2007 Kai Engert <kengert@redhat.com> 1.1.1-2
 - SeaMonkey 1.1.1
 * Wed Feb 07 2007 Kai Engert <kengert@redhat.com> 1.1-2
