@@ -1,0 +1,45 @@
+diff -ru org/mozilla/browser/config/version.txt fixed/mozilla/browser/config/version.txt
+--- org/mozilla/browser/config/version.txt	2007-05-31 11:22:44.000000000 +0200
++++ fixed/mozilla/browser/config/version.txt	2007-07-18 13:36:42.000000000 +0200
+@@ -1 +1 @@
+-1.5.0.13pre
++1.5.0.12
+diff -ru org/mozilla/config/milestone.txt fixed/mozilla/config/milestone.txt
+--- org/mozilla/config/milestone.txt	2007-05-31 11:22:44.000000000 +0200
++++ fixed/mozilla/config/milestone.txt	2007-07-18 12:26:43.000000000 +0200
+@@ -10,4 +10,4 @@
+ # hardcoded milestones in the tree from these two files.
+ #--------------------------------------------------------
+ 
+-1.8.0.13pre
++1.8.0.12
+diff -ru org/mozilla/configure fixed/mozilla/configure
+--- org/mozilla/configure	2007-07-11 19:03:09.000000000 +0200
++++ fixed/mozilla/configure	2007-07-18 13:49:26.000000000 +0200
+@@ -1020,7 +1020,7 @@
+ _SUBDIR_CONFIG_ARGS="$ac_configure_args"
+ 
+ MOZJPEG=62
+-MOZPNG=10217
++MOZPNG=10207
+ MOZZLIB=1.2.3
+ NSPR_VERSION=4
+ 
+diff -ru org/mozilla/configure.in fixed/mozilla/configure.in
+--- org/mozilla/configure.in	2007-07-11 19:03:54.000000000 +0200
++++ fixed/mozilla/configure.in	2007-07-18 13:47:56.000000000 +0200
+@@ -83,7 +83,7 @@
+ dnl Set the version number of the libs included with mozilla
+ dnl ========================================================
+ MOZJPEG=62
+-MOZPNG=10217
++MOZPNG=10207
+ MOZZLIB=1.2.3
+ NSPR_VERSION=4
+ 
+diff -ru org/mozilla/mail/config/version.txt fixed/mozilla/mail/config/version.txt
+--- org/mozilla/mail/config/version.txt	2007-05-31 11:22:44.000000000 +0200
++++ fixed/mozilla/mail/config/version.txt	2007-07-18 13:36:36.000000000 +0200
+@@ -1 +1 @@
+-1.5.0.13pre
++1.5.0.12

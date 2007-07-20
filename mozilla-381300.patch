@@ -1,0 +1,1086 @@
+ caps/src/nsPrincipal.cpp                                   |   39 ---
+ caps/src/nsScriptSecurityManager.cpp                       |   33 +-
+ content/base/public/nsIDocument.h                          |   42 +++
+ content/base/src/nsDocument.cpp                            |    2 
+ content/base/src/nsDocument.h                              |    1 
+ content/base/src/nsFrameLoader.cpp                         |    7 
+ content/html/document/src/nsHTMLDocument.cpp               |   44 +--
+ docshell/base/nsDocShell.cpp                               |  154 +++++++++---
+ docshell/base/nsDocShell.h                                 |   16 +
+ dom/public/base/nsPIDOMWindow.h                            |   29 ++
+ dom/src/base/nsGlobalWindow.cpp                            |  161 +++++++------
+ dom/src/base/nsGlobalWindow.h                              |   10 
+ dom/src/jsurl/nsJSProtocolHandler.cpp                      |    6 
+ embedding/components/windowwatcher/src/Makefile.in         |    1 
+ embedding/components/windowwatcher/src/nsWindowWatcher.cpp |   61 ++++
+ embedding/components/windowwatcher/src/nsWindowWatcher.h   |    1 
+ 16 files changed, 395 insertions(+), 212 deletions(-)
+
+Index: mozilla/caps/src/nsPrincipal.cpp
+===================================================================
+--- mozilla.orig/caps/src/nsPrincipal.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/caps/src/nsPrincipal.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -260,15 +260,10 @@
+     }
+ 
+     // Codebases are equal if they have the same origin.
+-    nsIURI *origin = mDomain ? mDomain : mCodebase;
+-    nsCOMPtr<nsIURI> otherOrigin;
+-    aOther->GetDomain(getter_AddRefs(otherOrigin));
+-    if (!otherOrigin) {
+-      aOther->GetURI(getter_AddRefs(otherOrigin));
+-    }
+-
+-    return nsScriptSecurityManager::GetScriptSecurityManager()
+-           ->SecurityCompareURIs(origin, otherOrigin, aResult);
++    *aResult =
++      NS_SUCCEEDED(nsScriptSecurityManager::GetScriptSecurityManager()
++                   ->CheckSameOriginPrincipal(this, aOther));
++    return NS_OK;
+   }
+ 
+   *aResult = PR_TRUE;
+@@ -278,32 +273,6 @@
+ NS_IMETHODIMP
+ nsPrincipal::Subsumes(nsIPrincipal *aOther, PRBool *aResult)
+ {
+-  // First, check if aOther is an about:blank principal. If it is, then we can
+-  // subsume it.
+-
+-  nsCOMPtr<nsIURI> otherOrigin;
+-  aOther->GetURI(getter_AddRefs(otherOrigin));
+-
+-  if (otherOrigin) {
+-    PRBool isAbout = PR_FALSE;
+-    if (NS_SUCCEEDED(otherOrigin->SchemeIs("about", &isAbout)) && isAbout) {
+-      nsCAutoString str;
+-      otherOrigin->GetSpec(str);
+-
+-      // Note: about:blank principals do not necessarily subsume about:blank
+-      // principals (unless aOther == this, which is checked in the Equals call
+-      // below).
+-
+-      if (str.Equals("about:blank")) {
+-        PRBool isEqual = PR_FALSE;
+-        if (NS_SUCCEEDED(otherOrigin->Equals(mCodebase, &isEqual)) && !isEqual) {
+-          *aResult = PR_TRUE;
+-          return NS_OK;
+-        }
+-      }
+-    }
+-  }
+-
+   return Equals(aOther, aResult);
+ }
+ 
+Index: mozilla/caps/src/nsScriptSecurityManager.cpp
+===================================================================
+--- mozilla.orig/caps/src/nsScriptSecurityManager.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/caps/src/nsScriptSecurityManager.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -273,7 +273,7 @@
+         return NS_OK;
+     }
+ 
+-    if (!aTargetURI) 
++    if (!aTargetURI || !aSourceURI) 
+     {
+         // return false
+         return NS_OK;
+@@ -863,8 +863,14 @@
+     if (aSubject == aObject)
+         return NS_OK;
+ 
++    // These booleans are only used when !aIsCheckConnect.  Default
++    // them to false, and change if that turns out wrong.
++    PRBool subjectSetDomain = PR_FALSE;
++    PRBool objectSetDomain = PR_FALSE;
++    
+     nsCOMPtr<nsIURI> subjectURI;
+     nsCOMPtr<nsIURI> objectURI;
++
+     if (aIsCheckConnect)
+     {
+         // Don't use domain for CheckConnect calls, since that's called for
+@@ -875,12 +881,18 @@
+     else
+     {
+         aSubject->GetDomain(getter_AddRefs(subjectURI));
+-        if (!subjectURI)
++        if (!subjectURI) {
+             aSubject->GetURI(getter_AddRefs(subjectURI));
++        } else {
++            subjectSetDomain = PR_TRUE;
++        }
+ 
+         aObject->GetDomain(getter_AddRefs(objectURI));
+-        if (!objectURI)
++        if (!objectURI) {
+             aObject->GetURI(getter_AddRefs(objectURI));
++        } else {
++            objectSetDomain = PR_TRUE;
++        }
+     }
+ 
+     PRBool isSameOrigin = PR_FALSE;
+@@ -899,24 +911,11 @@
+         if (aIsCheckConnect)
+             return NS_OK;
+ 
+-        nsCOMPtr<nsIURI> subjectDomain;
+-        aSubject->GetDomain(getter_AddRefs(subjectDomain));
+-
+-        nsCOMPtr<nsIURI> objectDomain;
+-        aObject->GetDomain(getter_AddRefs(objectDomain));
+-
+         // If both or neither explicitly set their domain, allow the access
+-        if (!subjectDomain == !objectDomain)
++        if (subjectSetDomain == objectSetDomain)
+             return NS_OK;
+     }
+ 
+-    // Allow access to about:blank
+-    nsXPIDLCString origin;
+-    rv = aObject->GetOrigin(getter_Copies(origin));
+-    NS_ENSURE_SUCCESS(rv, rv);
+-    if (nsCRT::strcasecmp(origin, "about:blank") == 0)
+-        return NS_OK;
+-
+     /*
+     ** Access tests failed, so now report error.
+     */
+Index: mozilla/content/base/public/nsIDocument.h
+===================================================================
+--- mozilla.orig/content/base/public/nsIDocument.h	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/content/base/public/nsIDocument.h	2007-07-16 11:53:05.000000000 +0200
+@@ -841,7 +841,7 @@
+   PRUint32 mPartID;
+ };
+ 
+-// IID for the nsIDocument interface
++// IID for the nsIDocument_MOZILLA_1_8_0_BRANCH interface
+ #define NS_IDOCUMENT_MOZILLA_1_8_0_BRANCH_IID      \
+ { 0x7d001ad2, 0x01ac, 0x4bf2, \
+   { 0xb8, 0x3a, 0x50, 0xaa, 0xed, 0xc6, 0x1d, 0xfa } }
+@@ -870,6 +870,46 @@
+   virtual nsresult RemoveChildAt(PRUint32 aIndex, PRBool aNotify) = 0;
+ };
+ 
++// IID for the nsIDocument_MOZILLA_1_8_BRANCH2 interface
++#define NS_IDOCUMENT_MOZILLA_1_8_BRANCH2_IID      \
++{ 0x095024b5, 0x57d1, 0x4117, \
++ { 0xb6, 0x02, 0x5c, 0x6d, 0xf2, 0x81, 0xe0, 0xba } }
++
++class nsIDocument_MOZILLA_1_8_BRANCH2 : public nsISupports
++{
++public:
++  NS_DEFINE_STATIC_IID_ACCESSOR(NS_IDOCUMENT_MOZILLA_1_8_BRANCH2_IID)
++
++  nsIDocument_MOZILLA_1_8_BRANCH2() :
++    mIsInitialDocumentInWindow(PR_FALSE)
++  {
++  }
++
++  /**
++   * Ask this document whether it's the initial document in its window.
++   */
++  PRBool IsInitialDocument() const
++  {
++    return mIsInitialDocumentInWindow;
++  }
++  
++  /**
++   * Tell this document that it's the initial document in its window.  See
++   * comments on mIsInitialDocumentInWindow for when this should be called.
++   */
++  void SetIsInitialDocument(PRBool aIsInitialDocument)
++  {
++    mIsInitialDocumentInWindow = aIsInitialDocument;
++  }
++
++protected:   
++  // True if this document is the initial document for a window.  This should
++  // basically be true only for documents that exist in newly-opened windows or
++  // documents created to satisfy a GetDocument() on a window when there's no
++  // document in it.
++  PRBool mIsInitialDocumentInWindow;
++};
++
+ /**
+  * Helper class to automatically handle batching of document updates.  This
+  * class will call BeginUpdate on construction and EndUpdate on destruction on
+Index: mozilla/content/base/src/nsDocument.cpp
+===================================================================
+--- mozilla.orig/content/base/src/nsDocument.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/content/base/src/nsDocument.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -783,6 +783,7 @@
+ 
+ nsDocument::nsDocument()
+   : nsIDocument(),
++    nsIDocument_MOZILLA_1_8_BRANCH2(),
+     mVisible(PR_TRUE)
+ {
+ #ifdef PR_LOGGING
+@@ -916,6 +917,7 @@
+ NS_INTERFACE_MAP_BEGIN(nsDocument)
+   NS_INTERFACE_MAP_ENTRY(nsIDocument)
+   NS_INTERFACE_MAP_ENTRY(nsIDocument_MOZILLA_1_8_0_BRANCH)
++  NS_INTERFACE_MAP_ENTRY(nsIDocument_MOZILLA_1_8_BRANCH2)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMDocument)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMNSDocument)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMDocumentEvent)
+Index: mozilla/content/base/src/nsDocument.h
+===================================================================
+--- mozilla.orig/content/base/src/nsDocument.h	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/content/base/src/nsDocument.h	2007-07-16 11:53:05.000000000 +0200
+@@ -365,6 +365,7 @@
+ // the interface.
+ class nsDocument : public nsIDocument,
+                    public nsIDocument_MOZILLA_1_8_0_BRANCH,
++                   public nsIDocument_MOZILLA_1_8_BRANCH2,
+                    public nsIDOMXMLDocument, // inherits nsIDOMDocument
+                    public nsIDOMNSDocument,
+                    public nsIDOMDocumentEvent,
+Index: mozilla/content/base/src/nsFrameLoader.cpp
+===================================================================
+--- mozilla.orig/content/base/src/nsFrameLoader.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/content/base/src/nsFrameLoader.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -165,6 +165,13 @@
+     // load instead of just forcing the system principal.  That way if we have
+     // something loaded already the principal used will be that of what we
+     // already have loaded.
++
++    // XXX bz I'd love to nix this, but the problem is chrome calling
++    // setAttribute() on an iframe or browser and passing in a javascript: URI.
++    // We probably don't want to run that with chrome privileges... Though in
++    // similar circumstances, if one sets window.location.href from chrome we
++    // _do_ run that with chrome privileges, so maybe we should do the same
++    // here?
+     loadInfo->SetInheritOwner(PR_TRUE);
+ 
+     // Also, in this case we don't set a referrer, just in case.
+Index: mozilla/content/html/document/src/nsHTMLDocument.cpp
+===================================================================
+--- mozilla.orig/content/html/document/src/nsHTMLDocument.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/content/html/document/src/nsHTMLDocument.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -2020,10 +2020,24 @@
+     // Rememer the old scope in case the call to SetNewDocument changes it.
+     nsCOMPtr<nsIScriptGlobalObject> oldScope(do_QueryReferent(mScopeObject));
+ 
++    // If callerPrincipal doesn't match our principal. make sure that
++    // SetNewDocument gives us a new inner window and clears our scope.
++    NS_ENSURE_TRUE(GetPrincipal(), NS_ERROR_OUT_OF_MEMORY);
++    if (!callerPrincipal ||
++        NS_FAILED(nsContentUtils::GetSecurityManager()->
++          CheckSameOriginPrincipal(callerPrincipal, GetPrincipal()))) {
++      SetIsInitialDocument(PR_FALSE);
++    }      
++
+     rv = mScriptGlobalObject->SetNewDocument((nsDocument *)this, nsnull,
+                                              PR_FALSE, PR_FALSE);
+     NS_ENSURE_SUCCESS(rv, rv);
+ 
++    // Now make sure we're not flagged as the initial document anymore, now
++    // that we've had stuff done to us.  From now on, if anyone tries to
++    // document.open() us, they get a new inner window.
++    SetIsInitialDocument(PR_FALSE);
++
+     nsCOMPtr<nsIScriptGlobalObject> newScope(do_QueryReferent(mScopeObject));
+     if (oldScope && newScope != oldScope) {
+       nsContentUtils::ReparentContentWrappersInScope(oldScope, newScope);
+@@ -2359,36 +2373,6 @@
+     GetCurrentNativeCallContext(getter_AddRefs(ncc));
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+-  nsCAutoString spec;
+-
+-  if (mDocumentURI) {
+-    rv = mDocumentURI->GetSpec(spec);
+-    NS_ENSURE_SUCCESS(rv, rv);
+-  }
+-
+-  if (!mDocumentURI || spec.EqualsLiteral("about:blank")) {
+-    // The current document's URI and principal are empty or "about:blank".
+-    // By writing to this document, the script acquires responsibility for the
+-    // document for security purposes. Thus a document.write of a script tag
+-    // ends up producing a script with the same principals as the script
+-    // that performed the write.
+-    nsIScriptSecurityManager *secMan = nsContentUtils::GetSecurityManager();
+-
+-    nsCOMPtr<nsIPrincipal> subject;
+-    rv = secMan->GetSubjectPrincipal(getter_AddRefs(subject));
+-    NS_ENSURE_SUCCESS(rv, rv);
+-
+-    if (subject) {
+-      nsCOMPtr<nsIURI> subjectURI;
+-      subject->GetURI(getter_AddRefs(subjectURI));
+-
+-      if (subjectURI) {
+-        mDocumentURI = subjectURI;
+-        mPrincipal = subject;
+-      }
+-    }
+-  }
+-
+   if (ncc) {
+     // We're called from JS, concatenate the extra arguments into
+     // string_buffer
+Index: mozilla/docshell/base/nsDocShell.cpp
+===================================================================
+--- mozilla.orig/docshell/base/nsDocShell.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/docshell/base/nsDocShell.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -3226,21 +3226,20 @@
+         rv = LoadHistoryEntry(mLSHE, type);
+     }
+     else {
++        nsCOMPtr<nsIDOMDocument> domDoc(do_GetInterface(GetAsSupports(this)));
++        nsCOMPtr<nsIDocument> doc(do_QueryInterface(domDoc));
++
++        nsIPrincipal* principal = nsnull;
+         nsAutoString contentTypeHint;
+-        nsCOMPtr<nsIDOMWindow> window(do_GetInterface((nsIDocShell*)this));
+-        if (window) {
+-            nsCOMPtr<nsIDOMDocument> document;
+-            window->GetDocument(getter_AddRefs(document));
+-            nsCOMPtr<nsIDOMNSDocument> doc(do_QueryInterface(document));
+-            if (doc) {
+-                doc->GetContentType(contentTypeHint);
+-            }
++        if (doc) {
++            principal = doc->GetPrincipal();
++            doc->GetContentType(contentTypeHint);
+         }
+ 
+         rv = InternalLoad(mCurrentURI,
+                           mReferrerURI,
+-                          nsnull,         // No owner
+-                          INTERNAL_LOAD_FLAGS_INHERIT_OWNER, // Inherit owner from document
++                          principal,
++                          INTERNAL_LOAD_FLAGS_NONE, // Do not inherit owner from document
+                           nsnull,         // No window target
+                           NS_LossyConvertUCS2toASCII(contentTypeHint).get(),
+                           nsnull,         // No post data
+@@ -4859,7 +4858,38 @@
+     if (mIsBeingDestroyed)
+         return NS_ERROR_FAILURE;
+ 
+-    return CreateAboutBlankContentViewer();
++    nsIPrincipal* principal = nsnull;
++
++    nsCOMPtr<nsPIDOMWindow_MOZILLA_1_8_BRANCH2> piDOMWindow =
++      do_QueryInterface(mScriptGlobal);
++    if (piDOMWindow) {
++        principal = piDOMWindow->GetOpenerScriptPrincipal();
++    }
++
++    if (!principal) {
++        principal = GetInheritedPrincipal(PR_FALSE);
++    }
++
++    nsresult rv = CreateAboutBlankContentViewer();
++
++    if (NS_SUCCEEDED(rv)) {
++        nsCOMPtr<nsIDOMDocument> domDoc;
++        mContentViewer->GetDOMDocument(getter_AddRefs(domDoc));
++        nsCOMPtr<nsIDocument> doc(do_QueryInterface(domDoc));
++        nsCOMPtr<nsIDocument_MOZILLA_1_8_BRANCH2> doc_MOZILLA_1_8_BRANCH2 =
++            do_QueryInterface(domDoc);
++        NS_ASSERTION(doc && doc_MOZILLA_1_8_BRANCH2,
++                     "Should have doc if CreateAboutBlankContentViewer "
++                     "succeeded!");
++
++        doc_MOZILLA_1_8_BRANCH2->SetIsInitialDocument(PR_TRUE);
++
++        if (principal) {
++            doc->SetPrincipal(principal);
++        }
++    }
++
++    return rv;
+ }
+ 
+ NS_IMETHODIMP
+@@ -6300,12 +6330,28 @@
+ 
+     nsCOMPtr<nsISupports> owner(aOwner);
+     //
+-    // Get an owner from the current document if necessary, but only
+-    // if this is not an external load.
++    // Get an owner from the current document if necessary.  Note that we only
++    // do this for URIs that inherit a security context; in particular we do
++    // NOT do this for about:blank.  This way, random about:blank loads that
++    // have no owner (which basically means they were done by someone from
++    // chrome manually messing with our nsIWebNavigation or by C++ setting
++    // document.location) don't get a funky principal.  If callers want
++    // something interesting to happen with the about:blank principal in this
++    // case, they should pass an owner in.
+     //
+     if (aLoadType != LOAD_NORMAL_EXTERNAL && !owner &&
+-        (aFlags & INTERNAL_LOAD_FLAGS_INHERIT_OWNER))
+-        GetCurrentDocumentOwner(getter_AddRefs(owner));
++        (aFlags & INTERNAL_LOAD_FLAGS_INHERIT_OWNER)) {
++        PRBool inherits;
++        PRBool isScheme;
++        inherits =
++            (NS_SUCCEEDED(aURI->SchemeIs("javascript", &isScheme)) &&
++             isScheme) ||
++            (NS_SUCCEEDED(aURI->SchemeIs("data", &isScheme)) &&
++             isScheme);
++        if (inherits) {
++            owner = GetInheritedPrincipal(PR_TRUE);
++        }
++    }
+ 
+     //
+     // Resolve the window target before going any further...
+@@ -6684,42 +6730,51 @@
+     return rv;
+ }
+ 
+-void
+-nsDocShell::GetCurrentDocumentOwner(nsISupports ** aOwner)
++nsIPrincipal*
++nsDocShell::GetInheritedPrincipal(PRBool aConsiderCurrentDocument)
+ {
+-    *aOwner = nsnull;
+     nsCOMPtr<nsIDocument> document;
+-    //-- Get the current document
+-    if (mContentViewer) {
++
++    if (aConsiderCurrentDocument && mContentViewer) {
+         nsCOMPtr<nsIDocumentViewer>
+             docViewer(do_QueryInterface(mContentViewer));
+         if (!docViewer)
+-            return;
++            return nsnull;
+         docViewer->GetDocument(getter_AddRefs(document));
+     }
+-    else //-- If there's no document loaded yet, look at the parent (frameset)
+-    {
++
++    if (!document) {
+         nsCOMPtr<nsIDocShellTreeItem> parentItem;
+         GetSameTypeParent(getter_AddRefs(parentItem));
+-        if (!parentItem)
+-            return;
+-        nsCOMPtr<nsIDOMWindowInternal>
+-            parentWindow(do_GetInterface(parentItem));
+-        if (!parentWindow)
+-            return;
+-        nsCOMPtr<nsIDOMDocument> parentDomDoc;
+-        parentWindow->GetDocument(getter_AddRefs(parentDomDoc));
+-        if (!parentDomDoc)
+-            return;
+-        document = do_QueryInterface(parentDomDoc);
++        if (parentItem) {
++            nsCOMPtr<nsIDOMDocument> parentDomDoc(do_GetInterface(parentItem));
++            document = do_QueryInterface(parentDomDoc);
++        }
++    }
++
++    if (!document) {
++        if (!aConsiderCurrentDocument) {
++            return nsnull;
++        }
++
++        // Make sure we end up with _something_ as the principal no matter
++        // what.
++        EnsureContentViewer();  // If this fails, we'll just get a null
++                                // docViewer and bail.
++
++        nsCOMPtr<nsIDocumentViewer>
++            docViewer(do_QueryInterface(mContentViewer));
++        if (!docViewer)
++            return nsnull;
++        docViewer->GetDocument(getter_AddRefs(document));
+     }
+ 
+     //-- Get the document's principal
+     if (document) {
+-        *aOwner = document->GetPrincipal();
++        return document->GetPrincipal();
+     }
+ 
+-    NS_IF_ADDREF(*aOwner);
++    return nsnull;
+ }
+ 
+ nsresult
+@@ -6885,7 +6940,12 @@
+     // Set the owner of the channel - only for javascript and data channels.
+     //
+     // XXX: Is seems wrong that the owner is ignored - even if one is
+-    //      supplied) unless the URI is javascript or data.
++    //      supplied) unless the URI is javascript or data or about:blank.
++    // XXX: If this is ever changed, check all callers for what owners they're
++    //      passing in.  In particular, see the code and comments in LoadURI
++    //      where we fall back on inheriting the owner if called
++    //      from chrome.  That would be very wrong if this code changed
++    //      anything but channels that can't provide their own security context!
+     //
+     //      (Currently chrome URIs set the owner when they are created!
+     //      So setting a NULL owner would be bad!)
+@@ -6895,7 +6955,7 @@
+     if (!isJSOrData) {
+       aURI->SchemeIs("data", &isJSOrData);
+     }
+-    if (isJSOrData) {
++    if (isJSOrData || IsAboutBlank(aURI)) {
+         channel->SetOwner(aOwner);
+     }
+ 
+@@ -8730,3 +8790,21 @@
+ 
+     return wwatch->GetNewAuthPrompter(window, aResult);
+ }
++
++/* static */
++PRBool
++nsDocShell::IsAboutBlank(nsIURI* aURI)
++{
++    NS_PRECONDITION(aURI, "Must have URI");
++    
++    // GetSpec can be expensive for some URIs, so check the scheme first.
++    PRBool isAbout = PR_FALSE;
++    if (NS_FAILED(aURI->SchemeIs("about", &isAbout)) || !isAbout) {
++        return PR_FALSE;
++    }
++    
++    nsCAutoString str;
++    aURI->GetSpec(str);
++    return str.EqualsLiteral("about:blank");
++}
++                                     
+Index: mozilla/docshell/base/nsDocShell.h
+===================================================================
+--- mozilla.orig/docshell/base/nsDocShell.h	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/docshell/base/nsDocShell.h	2007-07-16 11:53:05.000000000 +0200
+@@ -287,7 +287,18 @@
+     void SetupReferrerFromChannel(nsIChannel * aChannel);
+     
+     NS_IMETHOD GetEldestPresContext(nsPresContext** aPresContext);
+-    void GetCurrentDocumentOwner(nsISupports ** aOwner);
++
++    // Get the principal that we'll set on the channel if we're inheriting.  If
++    // aConsiderCurrentDocument is true, we try to use the current document if
++    // at all possible.  If that fails, we fall back on the parent document.
++    // If that fails too, we force creation of a content viewer and use the
++    // resulting principal.  If aConsiderCurrentDocument is false, we just look
++    // at the parent.
++    nsIPrincipal* GetInheritedPrincipal(PRBool aConsiderCurrentDocument);
++
++    // Actually open a channel and perform a URI load.  Note: whatever owner is
++    // passed to this function will be set on the channel.  Callers who wish to
++    // not have an owner on the channel should just pass null.
+     virtual nsresult DoURILoad(nsIURI * aURI,
+                                nsIURI * aReferrer,
+                                PRBool aSendReferrer,
+@@ -511,6 +522,9 @@
+     // Call BeginRestore(nsnull, PR_FALSE) for each child of this shell.
+     nsresult BeginRestoreChildren();
+ 
++    // Check whether aURI is about:blank
++    static PRBool IsAboutBlank(nsIURI* aURI);
++
+ protected:
+     // Override the parent setter from nsDocLoader
+     virtual nsresult SetDocLoaderParent(nsDocLoader * aLoader);
+Index: mozilla/dom/public/base/nsPIDOMWindow.h
+===================================================================
+--- mozilla.orig/dom/public/base/nsPIDOMWindow.h	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/dom/public/base/nsPIDOMWindow.h	2007-07-16 11:53:05.000000000 +0200
+@@ -50,6 +50,8 @@
+ #include "nsIURI.h"
+ #include "nsCOMPtr.h"
+ 
++class nsIPrincipal;
++
+ // Popup control state enum. The values in this enum must go from most
+ // permissive to least permissive so that it's safe to push state in
+ // all situations. Pushing popup state onto the stack never makes the
+@@ -252,6 +254,8 @@
+     return win->mIsHandlingResizeEvent;
+   }
+ 
++  // DO NOT USE THIS FUNCTION.  IT DOES NOTHING.  USE
++  // SetOpenerScriptPrincipal INSTEAD.
+   virtual void SetOpenerScriptURL(nsIURI* aURI) = 0;
+ 
+   virtual PopupControlState PushPopupControlState(PopupControlState aState,
+@@ -313,7 +317,6 @@
+ 
+   // These members are only used on outer windows.
+   nsIDOMElement *mFrameElement; // weak
+-  nsCOMPtr<nsIURI> mOpenerScriptURL; // strong; used to determine whether to clear scope
+ 
+   // These variables are only used on inner windows.
+   nsTimeout             *mRunningTimeout;
+@@ -329,6 +332,30 @@
+   nsPIDOMWindow         *mOuterWindow;
+ };
+ 
++#define NS_PIDOMWINDOW_MOZILLA_1_8_BRANCH2_IID \
++{ 0xddd4affd, 0x6ad4, 0x44b4, \
++ { 0xa8, 0xfc, 0x78, 0x1d, 0xbd, 0xf1, 0x87, 0x1d } }
++
++class nsPIDOMWindow_MOZILLA_1_8_BRANCH2 : public nsPIDOMWindow
++{
++public:
++  NS_DEFINE_STATIC_IID_ACCESSOR(NS_PIDOMWINDOW_MOZILLA_1_8_BRANCH2_IID)
++
++  // Tell this window who opened it.  This only has an effect if there is
++  // either no document currently in the window or if the document is the
++  // original document this window came with (an about:blank document either
++  // preloaded into it when it was created, or created by
++  // CreateAboutBlankContentViewer()).
++  virtual void SetOpenerScriptPrincipal(nsIPrincipal* aPrincipal) = 0;
++  // Ask this window who opened it.
++  virtual nsIPrincipal* GetOpenerScriptPrincipal() = 0;
++
++protected:
++  nsPIDOMWindow_MOZILLA_1_8_BRANCH2(nsPIDOMWindow *aOuterWindow)
++    : nsPIDOMWindow(aOuterWindow)
++  {
++  }                                     
++};
+ 
+ #ifdef _IMPL_NS_LAYOUT
+ PopupControlState
+Index: mozilla/dom/src/base/nsGlobalWindow.cpp
+===================================================================
+--- mozilla.orig/dom/src/base/nsGlobalWindow.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/dom/src/base/nsGlobalWindow.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -296,13 +296,28 @@
+ static const char kCryptoContractID[] = NS_CRYPTO_CONTRACTID;
+ static const char kPkcs11ContractID[] = NS_PKCS11_CONTRACTID;
+ 
++static PRBool
++IsAboutBlank(nsIURI* aURI)
++{
++  NS_PRECONDITION(aURI, "Must have URI");
++    
++  // GetSpec can be expensive for some URIs, so check the scheme first.
++  PRBool isAbout = PR_FALSE;
++  if (NS_FAILED(aURI->SchemeIs("about", &isAbout)) || !isAbout) {
++    return PR_FALSE;
++  }
++    
++  nsCAutoString str;
++  aURI->GetSpec(str);
++  return str.EqualsLiteral("about:blank");  
++}
+ 
+ //*****************************************************************************
+ //***    nsGlobalWindow: Object Management
+ //*****************************************************************************
+ 
+ nsGlobalWindow::nsGlobalWindow(nsGlobalWindow *aOuterWindow)
+-  : nsPIDOMWindow(aOuterWindow),
++  : nsPIDOMWindow_MOZILLA_1_8_BRANCH2(aOuterWindow),
+     mIsFrozen(PR_FALSE),
+     mFullScreen(PR_FALSE),
+     mIsClosed(PR_FALSE), 
+@@ -521,6 +536,7 @@
+   NS_INTERFACE_MAP_ENTRY(nsIDOM3EventTarget)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMNSEventTarget)
+   NS_INTERFACE_MAP_ENTRY(nsPIDOMWindow)
++  NS_INTERFACE_MAP_ENTRY(nsPIDOMWindow_MOZILLA_1_8_BRANCH2)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMViewCSS)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMAbstractView)
+   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
+@@ -581,70 +597,52 @@
+ PRBool
+ nsGlobalWindow::WouldReuseInnerWindow(nsIDocument *aNewDocument)
+ {
+-  return WouldReuseInnerWindow(aNewDocument, PR_TRUE);
+-}
+-
+-PRBool
+-nsGlobalWindow::WouldReuseInnerWindow(nsIDocument *aNewDocument, PRBool useDocURI)
+-{
+   // We reuse the inner window when:
+-  // a. We are currently at about:blank
++  // a. We are currently at our original document.
+   // b. At least one of the following conditions are true:
+   // -- We are not currently a content window (i.e., we're currently a chrome
+   //    window).
+   // -- The new document is the same as the old document. This means that we're
+   //    getting called from document.open().
+-  // -- The new URI has the same origin as the script opener uri for our current
+-  //    window.
++  // -- The new document has the same origin as what we have loaded right now.
+ 
+   nsCOMPtr<nsIDocument> curDoc(do_QueryInterface(mDocument));
+-  if (!curDoc || !aNewDocument) {
++  nsCOMPtr<nsIDocument_MOZILLA_1_8_BRANCH2> curDoc_MOZILLA_1_8_BRANCH2 =
++    do_QueryInterface(mDocument);
++  if (!curDoc || !curDoc_MOZILLA_1_8_BRANCH2 || !aNewDocument) {
+     return PR_FALSE;
+   }
+ 
+-  nsCOMPtr<nsIURI> newURI;
+-  if (useDocURI) {
+-    newURI = aNewDocument->GetDocumentURI();
+-  } else {
+-    nsCOMPtr<nsIWebNavigation> webNav(do_QueryInterface(mDocShell));
+-
+-    if (webNav) {
+-      webNav->GetCurrentURI(getter_AddRefs(newURI));
+-    }
+-  }
+-
+-  nsIURI* curURI = curDoc->GetDocumentURI();
+-  if (!curURI || !newURI) {
++  nsIPrincipal* newPrincipal = aNewDocument->GetPrincipal();
++  if (!newPrincipal) {
++    // Play it safe
+     return PR_FALSE;
+   }
+-
+-  PRBool isAbout;
+-  if (NS_FAILED(curURI->SchemeIs("about", &isAbout)) || !isAbout) {
+-    return PR_FALSE;
+-  }
+-
+-  nsCAutoString uri;
+-  curURI->GetSpec(uri);
+-  if (!uri.EqualsLiteral("about:blank")) {
++    
++  if (!curDoc_MOZILLA_1_8_BRANCH2->IsInitialDocument()) {
+     return PR_FALSE;
+   }
+   
+-  // Great, we're an about:blank document, check for one of the other
+-  // conditions.
++  NS_ASSERTION(IsAboutBlank(curDoc->GetDocumentURI()),
++               "How'd this happen?");
++  
++  // Great, we're the original document, check for one of the other
+   if (curDoc == aNewDocument) {
+     // aClearScopeHint is false.
+     return PR_TRUE;
+   }
+ 
+-  if (mOpenerScriptURL) {
+-    if (sSecMan) {
+-      PRBool isSameOrigin = PR_FALSE;
+-      sSecMan->SecurityCompareURIs(mOpenerScriptURL, newURI, &isSameOrigin);
+-      if (isSameOrigin) {
+-        // The origin is the same.
+-        return PR_TRUE;
+-      }
+-    }
++  nsIPrincipal* curPrincipal = curDoc->GetPrincipal();
++  if (!curPrincipal) {
++    // Play it safe
++    return PR_FALSE;
++  }
++ 
++  if (nsContentUtils::GetSecurityManager() &&
++      NS_SUCCEEDED(nsContentUtils::GetSecurityManager()->
++        CheckSameOriginPrincipal(curPrincipal, newPrincipal))) {
++    // The origin is the same.
++    return PR_TRUE;
+   }
+ 
+   nsCOMPtr<nsIDocShellTreeItem> treeItem(do_QueryInterface(mDocShell));
+@@ -664,9 +662,49 @@
+ void
+ nsGlobalWindow::SetOpenerScriptURL(nsIURI* aURI)
+ {
+-  FORWARD_TO_OUTER_VOID(SetOpenerScriptURL, (aURI));
++}
++
++void
++nsGlobalWindow::SetOpenerScriptPrincipal(nsIPrincipal* aPrincipal)
++{
++  FORWARD_TO_OUTER_VOID(SetOpenerScriptPrincipal, (aPrincipal));
++
++  nsCOMPtr<nsIDocument> curDoc(do_QueryInterface(mDocument));
++  nsCOMPtr<nsIDocument_MOZILLA_1_8_BRANCH2> curDoc_MOZILLA_1_8_BRANCH2 =
++    do_QueryInterface(mDocument);
++  if (curDoc && curDoc_MOZILLA_1_8_BRANCH2) {
++    if (!curDoc_MOZILLA_1_8_BRANCH2->IsInitialDocument()) {
++      // We have a document already, and it's not the original one.  Bail out.
++      // Do NOT set mOpenerScriptPrincipal in this case, just to be safe.
++      return;
++    }
++    
++#ifdef DEBUG
++    // We better have an about:blank document loaded at this point.  Otherwise,
++    // something is really weird.
++    if (curDoc->GetPrincipal()) {
++      nsCOMPtr<nsIURI> uri;
++      curDoc->GetPrincipal()->GetURI(getter_AddRefs(uri));
++      NS_ASSERTION(uri && IsAboutBlank(uri) &&
++                   IsAboutBlank(curDoc->GetDocumentURI()),
++                   "Unexpected original document");
++    }
++#endif
++    
++    // Set the opener principal on our document; given the above check, this
++    // is safe.
++    curDoc->SetPrincipal(aPrincipal);
++  }
++
++  mOpenerScriptPrincipal = aPrincipal;
++}
++
++nsIPrincipal*
++nsGlobalWindow::GetOpenerScriptPrincipal()
++{
++  FORWARD_TO_OUTER(GetOpenerScriptPrincipal, (), nsnull);
+ 
+-  mOpenerScriptURL = aURI;
++  return mOpenerScriptPrincipal;
+ }
+ 
+ PopupControlState
+@@ -944,7 +982,7 @@
+   // check xpc here.
+   nsIXPConnect *xpc = nsContentUtils::XPConnect();
+ 
+-  PRBool reUseInnerWindow = WouldReuseInnerWindow(newDoc, PR_FALSE);
++  PRBool reUseInnerWindow = WouldReuseInnerWindow(newDoc);
+ 
+   // XXX We used to share event listeners between inner windows in special
+   // circumstances (that were remarkably close to the conditions that we set
+@@ -3530,6 +3568,7 @@
+   if (mDocShell) {
+     // Don't look for a presshell if we're a root chrome window that's got
+     // about:blank loaded.  We don't want to focus our widget in that case.
++    // XXXbz should we really be checking for IsInitialDocument() instead?
+     PRBool lookForPresShell = PR_TRUE;
+     PRInt32 itemType = nsIDocShellTreeItem::typeContent;
+     nsCOMPtr<nsIDocShellTreeItem> treeItem(do_QueryInterface(mDocShell));
+@@ -3541,12 +3580,8 @@
+       nsCOMPtr<nsIDocument> doc(do_QueryInterface(mDocument));
+       NS_ASSERTION(doc, "Bogus doc?");
+       nsIURI* ourURI = doc->GetDocumentURI();
+-      PRBool isAbout;
+-      if (ourURI && NS_SUCCEEDED(ourURI->SchemeIs("about", &isAbout)) &&
+-          isAbout) {
+-        nsCAutoString spec;
+-        ourURI->GetSpec(spec);
+-        lookForPresShell = !spec.EqualsLiteral("about:blank");
++      if (ourURI) {
++        lookForPresShell = !IsAboutBlank(ourURI);
+       }
+     }
+       
+@@ -5978,25 +6013,7 @@
+ 
+   // success!
+ 
+-  if (domReturn) {
+-    CallQueryInterface(domReturn, aReturn);
+-
+-    // Save the principal of the calling script
+-    // We need it to decide whether to clear the scope in SetNewDocument
+-    NS_ASSERTION(sSecMan, "No Security Manager Found!");
+-    if (sSecMan) {
+-      nsCOMPtr<nsIPrincipal> principal;
+-      sSecMan->GetSubjectPrincipal(getter_AddRefs(principal));
+-      if (principal) {
+-        nsCOMPtr<nsIURI> subjectURI;
+-        principal->GetURI(getter_AddRefs(subjectURI));
+-        if (subjectURI) {
+-          nsCOMPtr<nsPIDOMWindow> domReturnPrivate(do_QueryInterface(domReturn));
+-          domReturnPrivate->SetOpenerScriptURL(subjectURI);
+-        }
+-      }
+-    }
+-  }
++  domReturn.swap(*aReturn);
+ 
+   return rv;
+ }
+Index: mozilla/dom/src/base/nsGlobalWindow.h
+===================================================================
+--- mozilla.orig/dom/src/base/nsGlobalWindow.h	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/dom/src/base/nsGlobalWindow.h	2007-07-16 11:53:05.000000000 +0200
+@@ -129,7 +129,7 @@
+ // belonging to the same outer window, but that's an unimportant
+ // side effect of inheriting PRCList).
+ 
+-class nsGlobalWindow : public nsPIDOMWindow,
++class nsGlobalWindow : public nsPIDOMWindow_MOZILLA_1_8_BRANCH2,
+                        public nsIScriptGlobalObject,
+                        public nsIDOMJSWindow,
+                        public nsIScriptObjectPrincipal,
+@@ -224,6 +224,10 @@
+ 
+   virtual NS_HIDDEN_(PRBool) WouldReuseInnerWindow(nsIDocument *aNewDocument);
+ 
++  // nsPIDOMWindow_MOZILLA_1_8_BRANCH2
++  virtual NS_HIDDEN_(void) SetOpenerScriptPrincipal(nsIPrincipal* aPrincipal);
++  virtual NS_HIDDEN_(nsIPrincipal*) GetOpenerScriptPrincipal();
++  
+   // nsIDOMViewCSS
+   NS_DECL_NSIDOMVIEWCSS
+ 
+@@ -294,8 +298,6 @@
+                           PRBool aClearScopeHint,
+                           PRBool aIsInternalCall);
+ 
+-  PRBool WouldReuseInnerWindow(nsIDocument *aNewDocument, PRBool useDocURI);
+-
+   // Get the parent, returns null if this is a toplevel window
+   nsIDOMWindowInternal *GetParentInternal();
+ 
+@@ -461,6 +463,8 @@
+   nsCOMPtr<nsIDOMPkcs11>        mPkcs11;
+ 
+   nsCOMPtr<nsIXPConnectJSObjectHolder> mInnerWindowHolder;
++  nsCOMPtr<nsIPrincipal> mOpenerScriptPrincipal; // strong; used to determine
++                                                 // whether to clear scope
+ 
+   // These member variable are used only on inner windows.
+   nsCOMPtr<nsIEventListenerManager> mListenerManager;
+Index: mozilla/dom/src/jsurl/nsJSProtocolHandler.cpp
+===================================================================
+--- mozilla.orig/dom/src/jsurl/nsJSProtocolHandler.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/dom/src/jsurl/nsJSProtocolHandler.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -222,10 +222,8 @@
+         if (!principal)
+             return NS_ERROR_FAILURE;
+ 
+-        //-- Don't run if the script principal is different from the
+-        //   principal of the context, with two exceptions: we allow
+-        //   the script to run if the script has the system principal
+-        //   or the context is about:blank.
++        //-- Don't run if the script principal is different from the principal
++        //   of the context, unless the script has the system principal.
+         nsCOMPtr<nsIPrincipal> objectPrincipal;
+         rv = securityManager->GetObjectPrincipal(
+                                 (JSContext*)scriptContext->GetNativeContext(),
+Index: mozilla/embedding/components/windowwatcher/src/Makefile.in
+===================================================================
+--- mozilla.orig/embedding/components/windowwatcher/src/Makefile.in	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/embedding/components/windowwatcher/src/Makefile.in	2007-07-16 11:53:05.000000000 +0200
+@@ -63,6 +63,7 @@
+ 		  embed_base \
+ 		  intl \
+ 		  layout \
++		  uriloader \
+ 		  $(NULL)
+ 
+ CPPSRCS		= nsPrompt.cpp \
+Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
+===================================================================
+--- mozilla.orig/embedding/components/windowwatcher/src/nsWindowWatcher.cpp	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp	2007-07-16 11:53:05.000000000 +0200
+@@ -58,6 +58,7 @@
+ #include "nsIDOMWindow.h"
+ #include "nsIDOMChromeWindow.h"
+ #include "nsIDOMWindowInternal.h"
++#include "nsIScriptObjectPrincipal.h"
+ #include "nsIScreen.h"
+ #include "nsIScreenManager.h"
+ #include "nsIScriptContext.h"
+@@ -684,7 +685,7 @@
+   if (!newDocShellItem)
+     return rv;
+ 
+-  rv = ReadyOpenedDocShellItem(newDocShellItem, aParent, _retval);
++  rv = ReadyOpenedDocShellItem(newDocShellItem, aParent, windowIsNew, _retval);
+   if (NS_FAILED(rv))
+     return rv;
+ 
+@@ -750,6 +751,43 @@
+     }
+   }
+ 
++  // Now we have to set the right opener principal on the new window.  Note
++  // that we have to do this _before_ starting any URI loads, thanks to the
++  // sync nature of javascript: loads.  Since this is the only place where we
++  // set said opener principal, we need to do it for all URIs, including
++  // chrome ones.  So to deal with the mess that is bug 79775, just press on in
++  // a reasonable way even if GetSubjectPrincipal fails.  In that case, just
++  // use a null subjectPrincipal.
++  nsCOMPtr<nsIPrincipal> subjectPrincipal;
++  if (NS_FAILED(sm->GetSubjectPrincipal(getter_AddRefs(subjectPrincipal)))) {
++    subjectPrincipal = nsnull;
++  }
++
++  if (windowIsNew) {
++    // Now set the opener principal on the new window.  Note that we need to do
++    // this no matter whether we were opened from JS; if there is nothing on
++    // the JS stack, just use the principal of our parent window.  In those
++    // cases we do _not_ set the parent window principal as the owner of the
++    // load--since we really don't know who the owner is, just leave it null.
++    nsIPrincipal* newWindowPrincipal = subjectPrincipal;
++    if (!newWindowPrincipal && aParent) {
++      nsCOMPtr<nsIScriptObjectPrincipal> sop(do_QueryInterface(aParent));
++      if (sop) {
++        newWindowPrincipal = sop->GetPrincipal();
++      }
++    }
++
++    nsCOMPtr<nsPIDOMWindow_MOZILLA_1_8_BRANCH2> newWindow =
++      do_QueryInterface(*_retval);
++#ifdef DEBUG
++    nsCOMPtr<nsPIDOMWindow> newDebugWindow = do_GetInterface(newDocShell);
++    NS_ASSERTION(newWindow == newDebugWindow, "Different windows??");
++#endif
++    if (newWindow) {
++      newWindow->SetOpenerScriptPrincipal(newWindowPrincipal);
++    }
++  }
++
+   if (uriToLoad) { // get the script principal and pass it to docshell
+     JSContextAutoPopper contextGuard;
+ 
+@@ -769,15 +807,8 @@
+     newDocShell->CreateLoadInfo(getter_AddRefs(loadInfo));
+     NS_ENSURE_TRUE(loadInfo, NS_ERROR_FAILURE);
+ 
+-    if (!uriToLoadIsChrome) {
+-      nsCOMPtr<nsIPrincipal> principal;
+-      if (NS_FAILED(sm->GetSubjectPrincipal(getter_AddRefs(principal))))
+-        return NS_ERROR_FAILURE;
+-
+-      if (principal) {
+-        nsCOMPtr<nsISupports> owner(do_QueryInterface(principal));
+-        loadInfo->SetOwner(owner);
+-      }
++    if (subjectPrincipal) {
++      loadInfo->SetOwner(subjectPrincipal);
+     }
+ 
+     // Set the new window's referrer from the calling context's document:
+@@ -1523,6 +1554,7 @@
+ nsresult
+ nsWindowWatcher::ReadyOpenedDocShellItem(nsIDocShellTreeItem *aOpenedItem,
+                                          nsIDOMWindow        *aParent,
++                                         PRBool              aWindowIsNew,
+                                          nsIDOMWindow        **aOpenedWindow)
+ {
+   nsresult rv = NS_ERROR_FAILURE;
+@@ -1533,6 +1565,15 @@
+     if (aParent) {
+       nsCOMPtr<nsIDOMWindowInternal> internalParent(do_QueryInterface(aParent));
+       globalObject->SetOpenerWindow(internalParent); // damnit
++
++      if (aWindowIsNew) {
++        nsCOMPtr<nsPIDOMWindow> win = do_QueryInterface(globalObject);
++        nsCOMPtr<nsIDocument_MOZILLA_1_8_BRANCH2> doc =
++          do_QueryInterface(win->GetExtantDocument());
++        if (doc) {
++          doc->SetIsInitialDocument(PR_TRUE);
++        }
++      }
+     }
+     rv = CallQueryInterface(globalObject, aOpenedWindow);
+   }
+Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.h
+===================================================================
+--- mozilla.orig/embedding/components/windowwatcher/src/nsWindowWatcher.h	2007-07-16 11:51:44.000000000 +0200
++++ mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.h	2007-07-16 11:53:05.000000000 +0200
+@@ -100,6 +100,7 @@
+                                  PRInt32 aDefault, PRBool *aPresenceFlag);
+   static nsresult   ReadyOpenedDocShellItem(nsIDocShellTreeItem *aOpenedItem,
+                                             nsIDOMWindow *aParent,
++                                            PRBool aWindowIsNew,
+                                             nsIDOMWindow **aOpenedWindow);
+   static void       SizeOpenedDocShellItem(nsIDocShellTreeItem *aDocShellItem,
+                                            nsIDOMWindow *aParent,

@@ -1,0 +1,101 @@
+ js/src/jsfun.c |   13 +++++++++----
+ js/src/jsobj.c |    3 ++-
+ js/src/jsobj.h |    4 ++++
+ 3 files changed, 15 insertions(+), 5 deletions(-)
+
+Index: mozilla/js/src/jsfun.c
+===================================================================
+--- mozilla.orig/js/src/jsfun.c	2007-07-16 10:49:46.000000000 +0000
++++ mozilla/js/src/jsfun.c	2007-07-16 10:53:05.000000000 +0000
+@@ -1051,28 +1051,33 @@
+ static JSBool
+ fun_resolve(JSContext *cx, JSObject *obj, jsval id, uintN flags,
+             JSObject **objp)
+ {
+     JSFunction *fun;
+     JSString *str;
+     JSAtom *prototypeAtom;
+ 
++    /*
++     * No need to reflect fun.prototype in 'fun.prototype = ...' or in an
++     * unqualified reference to prototype, which the emitter looks up as a
++     * hidden atom when attempting to bind to a formal parameter or local
++     * variable slot.
++     */
++    if (flags & (JSRESOLVE_ASSIGNING | JSRESOLVE_HIDDEN))
++        return JS_TRUE;
++
+     if (!JSVAL_IS_STRING(id))
+         return JS_TRUE;
+ 
+     /* No valid function object should lack private data, but check anyway. */
+     fun = (JSFunction *)JS_GetInstancePrivate(cx, obj, &js_FunctionClass, NULL);
+     if (!fun || !fun->object)
+         return JS_TRUE;
+ 
+-    /* No need to reflect fun.prototype in 'fun.prototype = ...'. */
+-    if (flags & JSRESOLVE_ASSIGNING)
+-        return JS_TRUE;
+-
+     /*
+      * Ok, check whether id is 'prototype' and bootstrap the function object's
+      * prototype property.
+      */
+     str = JSVAL_TO_STRING(id);
+     prototypeAtom = cx->runtime->atomState.classPrototypeAtom;
+     if (str == ATOM_TO_STRING(prototypeAtom)) {
+         JSObject *proto, *parentProto;
+Index: mozilla/js/src/jsobj.c
+===================================================================
+--- mozilla.orig/js/src/jsobj.c	2007-07-16 10:52:44.000000000 +0000
++++ mozilla/js/src/jsobj.c	2007-07-16 10:53:05.000000000 +0000
+@@ -2568,17 +2568,18 @@
+                                 flags, shortid);
+ }
+ 
+ JSBool
+ js_LookupHiddenProperty(JSContext *cx, JSObject *obj, jsid id, JSObject **objp,
+                         JSProperty **propp)
+ {
+     return HidePropertyName(cx, &id) &&
+-           js_LookupProperty(cx, obj, id, objp, propp);
++           js_LookupPropertyWithFlags(cx, obj, id, JSRESOLVE_HIDDEN,
++                                      objp, propp);
+ }
+ 
+ JSScopeProperty *
+ js_AddNativeProperty(JSContext *cx, JSObject *obj, jsid id,
+                      JSPropertyOp getter, JSPropertyOp setter, uint32 slot,
+                      uintN attrs, uintN flags, intN shortid)
+ {
+     JSScope *scope;
+Index: mozilla/js/src/jsobj.h
+===================================================================
+--- mozilla.orig/js/src/jsobj.h	2007-07-16 10:49:47.000000000 +0000
++++ mozilla/js/src/jsobj.h	2007-07-16 10:53:05.000000000 +0000
+@@ -405,21 +405,25 @@
+  * must later call OBJ_DROP_PROPERTY(cx, *objp, *propp).
+  */
+ extern JS_FRIEND_API(JSBool)
+ js_LookupProperty(JSContext *cx, JSObject *obj, jsid id, JSObject **objp,
+                   JSProperty **propp);
+ 
+ /*
+  * Specialized subroutine that allows caller to preset JSRESOLVE_* flags.
++ * JSRESOLVE_HIDDEN flags hidden function param/local name lookups, just for
++ * internal use by fun_resolve and similar built-ins.
+  */
+ extern JSBool
+ js_LookupPropertyWithFlags(JSContext *cx, JSObject *obj, jsid id, uintN flags,
+                            JSObject **objp, JSProperty **propp);
+ 
++#define JSRESOLVE_HIDDEN        0x8000
++
+ extern JS_FRIEND_API(JSBool)
+ js_FindProperty(JSContext *cx, jsid id, JSObject **objp, JSObject **pobjp,
+                 JSProperty **propp);
+ 
+ extern JSObject *
+ js_FindIdentifierBase(JSContext *cx, jsid id);
+ 
+ extern JSObject *

@@ -1,0 +1,634 @@
+ netwerk/cookie/public/nsICookie2.idl   |    9 ++
+ netwerk/cookie/src/nsCookie.cpp        |    7 +-
+ netwerk/cookie/src/nsCookie.h          |    8 ++
+ netwerk/cookie/src/nsCookieService.cpp |  111 +++++++++++++++++++++++++--------
+ netwerk/cookie/src/nsCookieService.h   |    6 +
+ 5 files changed, 113 insertions(+), 28 deletions(-)
+
+Index: mozilla/netwerk/cookie/public/nsICookie2.idl
+===================================================================
+--- mozilla.orig/netwerk/cookie/public/nsICookie2.idl	2007-07-16 10:53:19.000000000 +0000
++++ mozilla/netwerk/cookie/public/nsICookie2.idl	2007-07-16 10:53:23.000000000 +0000
+@@ -67,8 +67,17 @@
+      * (where 0 does not represent a session cookie).
+      *
+      * not to be confused with |expires|, an
+      * attribute on nsICookie.
+      */
+     readonly attribute PRInt64 expiry;
+ 
+ };
++
++[scriptable, uuid(40712890-6c9e-45fc-b77c-c8ea344f690e)]
++interface nsICookie2_MOZILLA_1_8_BRANCH : nsICookie2
++{
++    /**
++     * true if the cookie is an http only cookie
++     */
++    readonly attribute boolean httpOnly;
++};
+Index: mozilla/netwerk/cookie/src/nsCookie.cpp
+===================================================================
+--- mozilla.orig/netwerk/cookie/src/nsCookie.cpp	2007-07-16 10:53:19.000000000 +0000
++++ mozilla/netwerk/cookie/src/nsCookie.cpp	2007-07-16 10:53:23.000000000 +0000
+@@ -84,16 +84,17 @@
+ nsCookie::Create(const nsACString &aName,
+                  const nsACString &aValue,
+                  const nsACString &aHost,
+                  const nsACString &aPath,
+                  nsInt64          aExpiry,
+                  nsInt64          aLastAccessed,
+                  PRBool           aIsSession,
+                  PRBool           aIsSecure,
++                 PRBool           aIsHttpOnly,
+                  nsCookieStatus   aStatus,
+                  nsCookiePolicy   aPolicy)
+ {
+   // find the required string buffer size, adding 4 for the terminating nulls
+   const PRUint32 stringLength = aName.Length() + aValue.Length() +
+                                 aHost.Length() + aPath.Length() + 4;
+ 
+   // allocate contiguous space for the nsCookie and its strings -
+@@ -106,17 +107,18 @@
+   char *name, *value, *host, *path, *end;
+   name = NS_STATIC_CAST(char *, place) + sizeof(nsCookie);
+   StrBlockCopy(aName, aValue, aHost, aPath,
+                name, value, host, path, end);
+ 
+   // construct the cookie. placement new, oh yeah!
+   return new (place) nsCookie(name, value, host, path, end,
+                               aExpiry, aLastAccessed, ++gLastCreationTime,
+-                              aIsSession, aIsSecure, aStatus, aPolicy);
++                              aIsSession, aIsSecure, aIsHttpOnly,
++                              aStatus, aPolicy);
+ }
+ 
+ /******************************************************************************
+  * nsCookie:
+  * xpcom impl
+  ******************************************************************************/
+ 
+ // xpcom getters
+@@ -124,25 +126,26 @@
+ NS_IMETHODIMP nsCookie::GetValue(nsACString &aValue)       { aValue = Value();          return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetHost(nsACString &aHost)         { aHost = Host();            return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetRawHost(nsACString &aHost)      { aHost = RawHost();         return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetPath(nsACString &aPath)         { aPath = Path();            return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetExpiry(PRInt64 *aExpiry)        { *aExpiry = Expiry();       return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetIsSession(PRBool *aIsSession)   { *aIsSession = IsSession(); return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetIsDomain(PRBool *aIsDomain)     { *aIsDomain = IsDomain();   return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetIsSecure(PRBool *aIsSecure)     { *aIsSecure = IsSecure();   return NS_OK; }
++NS_IMETHODIMP nsCookie::GetHttpOnly(PRBool *aHttpOnly)     { *aHttpOnly = IsHttpOnly(); return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetStatus(nsCookieStatus *aStatus) { *aStatus = Status();       return NS_OK; }
+ NS_IMETHODIMP nsCookie::GetPolicy(nsCookiePolicy *aPolicy) { *aPolicy = Policy();       return NS_OK; }
+ 
+ // compatibility method, for use with the legacy nsICookie interface.
+ // here, expires == 0 denotes a session cookie.
+ NS_IMETHODIMP
+ nsCookie::GetExpires(PRUint64 *aExpires)
+ {
+   if (IsSession()) {
+     *aExpires = 0;
+   } else {
+     *aExpires = Expiry() > nsInt64(0) ? PRInt64(Expiry()) : 1;
+   }
+   return NS_OK;
+ }
+ 
+-NS_IMPL_ISUPPORTS2(nsCookie, nsICookie2, nsICookie)
++NS_IMPL_ISUPPORTS3(nsCookie, nsICookie2, nsICookie, nsICookie2_MOZILLA_1_8_BRANCH)
+Index: mozilla/netwerk/cookie/src/nsCookie.h
+===================================================================
+--- mozilla.orig/netwerk/cookie/src/nsCookie.h	2007-07-16 10:53:19.000000000 +0000
++++ mozilla/netwerk/cookie/src/nsCookie.h	2007-07-16 10:53:23.000000000 +0000
+@@ -50,71 +50,75 @@
+  * for xpcom access of cookie objects.
+  */
+ 
+ /******************************************************************************
+  * nsCookie:
+  * implementation
+  ******************************************************************************/
+ 
+-class nsCookie : public nsICookie2
++class nsCookie : public nsICookie2_MOZILLA_1_8_BRANCH
+ {
+   // break up the NS_DECL_ISUPPORTS macro, since we use a bitfield refcount member
+   public:
+     NS_DECL_ISUPPORTS_INHERITED
+   protected:
+     NS_DECL_OWNINGTHREAD
+ 
+   public:
+     // nsISupports
+     NS_DECL_NSICOOKIE
+     NS_DECL_NSICOOKIE2
++    NS_DECL_NSICOOKIE2_MOZILLA_1_8_BRANCH
+ 
+   private:
+     // for internal use only. see nsCookie::Create().
+     nsCookie(const char     *aName,
+              const char     *aValue,
+              const char     *aHost,
+              const char     *aPath,
+              const char     *aEnd,
+              nsInt64         aExpiry,
+              nsInt64         aLastAccessed,
+              PRUint32        aCreationTime,
+              PRBool          aIsSession,
+              PRBool          aIsSecure,
++             PRBool          aIsHttpOnly,
+              nsCookieStatus  aStatus,
+              nsCookiePolicy  aPolicy)
+      : mNext(nsnull)
+      , mName(aName)
+      , mValue(aValue)
+      , mHost(aHost)
+      , mPath(aPath)
+      , mEnd(aEnd)
+      , mExpiry(aExpiry)
+      , mLastAccessed(aLastAccessed)
+      , mCreationTime(aCreationTime)
+      , mRefCnt(0)
+      , mIsSession(aIsSession != PR_FALSE)
+      , mIsSecure(aIsSecure != PR_FALSE)
++     , mIsHttpOnly(aIsHttpOnly != PR_FALSE)
+      , mStatus(aStatus)
+      , mPolicy(aPolicy)
+     {
+     }
+ 
+   public:
+     // public helper to create an nsCookie object. use |operator delete|
+     // to destroy an object created by this method.
+     static nsCookie * Create(const nsACString &aName,
+                              const nsACString &aValue,
+                              const nsACString &aHost,
+                              const nsACString &aPath,
+                              nsInt64           aExpiry,
+                              nsInt64           aLastAccessed,
+                              PRBool            aIsSession,
+                              PRBool            aIsSecure,
++                             PRBool            aIsHttpOnly,
+                              nsCookieStatus    aStatus,
+                              nsCookiePolicy    aPolicy);
+ 
+     virtual ~nsCookie() {};
+ 
+     // fast (inline, non-xpcom) getters
+     inline const nsDependentCString Name()  const { return nsDependentCString(mName, mValue - 1); }
+     inline const nsDependentCString Value() const { return nsDependentCString(mValue, mHost - 1); }
+@@ -122,16 +126,17 @@
+     inline const nsDependentCString RawHost() const { return nsDependentCString(IsDomain() ? mHost + 1 : mHost, mPath - 1); }
+     inline const nsDependentCString Path()  const { return nsDependentCString(mPath, mEnd); }
+     inline nsInt64 Expiry()                 const { return mExpiry; }
+     inline nsInt64 LastAccessed()           const { return mLastAccessed; }
+     inline PRUint32 CreationTime()          const { return mCreationTime; }
+     inline PRBool IsSession()               const { return mIsSession; }
+     inline PRBool IsDomain()                const { return *mHost == '.'; }
+     inline PRBool IsSecure()                const { return mIsSecure; }
++    inline PRBool IsHttpOnly()              const { return mIsHttpOnly; }
+     inline nsCookieStatus Status()          const { return mStatus; }
+     inline nsCookiePolicy Policy()          const { return mPolicy; }
+ 
+     // setters
+     inline void SetLastAccessed(nsInt64 aLastAccessed) { mLastAccessed = aLastAccessed; }
+     inline void SetExpiry(PRInt64 aExpiry)             { mExpiry = aExpiry; }
+     inline void SetIsSession(PRBool aIsSession)        { mIsSession = aIsSession; }
+     inline void SetCreationTime(PRUint32 aCT)          { mCreationTime = aCT; }
+@@ -153,13 +158,14 @@
+     const char *mPath;
+     const char *mEnd;
+     nsInt64     mExpiry;
+     nsInt64     mLastAccessed;
+     PRUint32    mCreationTime;
+     PRUint32    mRefCnt    : 16;
+     PRUint32    mIsSession : 1;
+     PRUint32    mIsSecure  : 1;
++    PRUint32    mIsHttpOnly: 1;
+     PRUint32    mStatus    : 3;
+     PRUint32    mPolicy    : 3;
+ };
+ 
+ #endif // nsCookie_h__
+Index: mozilla/netwerk/cookie/src/nsCookieService.cpp
+===================================================================
+--- mozilla.orig/netwerk/cookie/src/nsCookieService.cpp	2007-07-16 10:53:19.000000000 +0000
++++ mozilla/netwerk/cookie/src/nsCookieService.cpp	2007-07-16 10:53:23.000000000 +0000
+@@ -70,16 +70,22 @@
+ #include "nsNetCID.h"
+ #include "nsAppDirectoryServiceDefs.h"
+ 
+ /******************************************************************************
+  * nsCookieService impl:
+  * useful types & constants
+  ******************************************************************************/
+ 
++// XXX_hack. See bug 178993.
++// This is a hack to hide HttpOnly cookies from older browsers
++//
++
++static const char kHttpOnlyPrefix[] = "#HttpOnly_";
++
+ static const char kCookieFileName[] = "cookies.txt";
+ 
+ static const PRUint32 kLazyWriteTimeout = 5000; //msec
+ 
+ #undef  LIMIT
+ #define LIMIT(x, low, high, default) ((x) >= (low) && (x) <= (high) ? (x) : (default))
+ 
+ // default limits for the cookie list. these can be tuned by the
+@@ -119,16 +125,17 @@
+   nsCAutoString value;
+   nsCAutoString host;
+   nsCAutoString path;
+   nsCAutoString expires;
+   nsCAutoString maxage;
+   nsInt64 expiryTime;
+   PRBool isSession;
+   PRBool isSecure;
++  PRBool isHttpOnly;
+ };
+ 
+ // stores linked list iteration state, and provides a rudimentary
+ // list traversal method
+ struct nsListIter
+ {
+   nsListIter() {}
+ 
+@@ -477,40 +484,24 @@
+     nsCOMPtr<nsIPrefBranch> prefBranch = do_QueryInterface(aSubject);
+     if (prefBranch)
+       PrefChanged(prefBranch);
+   }
+ 
+   return NS_OK;
+ }
+ 
+-NS_IMETHODIMP
+-nsCookieService::GetCookieString(nsIURI     *aHostURI,
+-                                 nsIChannel *aChannel,
+-                                 char       **aCookie)
+-{
+-  // try to determine first party URI
+-  nsCOMPtr<nsIURI> firstURI;
+-  if (aChannel) {
+-    nsCOMPtr<nsIHttpChannelInternal> httpInternal = do_QueryInterface(aChannel);
+-    if (httpInternal)
+-      httpInternal->GetDocumentURI(getter_AddRefs(firstURI));
+-  }
+-
+-  return GetCookieStringFromHttp(aHostURI, firstURI, aChannel, aCookie);
+-}
+-
+ // helper function for GetCookieStringFromHttp
+ static inline PRBool ispathdelimiter(char c) { return c == '/' || c == '?' || c == '#' || c == ';'; }
+ 
+-NS_IMETHODIMP
+-nsCookieService::GetCookieStringFromHttp(nsIURI     *aHostURI,
+-                                         nsIURI     *aFirstURI,
+-                                         nsIChannel *aChannel,
+-                                         char       **aCookie)
++nsresult nsCookieService::GetCookieStringFromHttpInternal(nsIURI     *aHostURI,
++                                                          nsIURI     *aFirstURI,
++                                                          nsIChannel *aChannel,
++                                                          char       **aCookie,
++                                                          PRBool     aHttpBound)
+ {
+   *aCookie = nsnull;
+ 
+   if (!aHostURI) {
+     COOKIE_LOGFAILURE(GET_COOKIE, nsnull, nsnull, "host URI is null");
+     return NS_OK;
+   }
+ 
+@@ -560,16 +551,22 @@
+     nsCookieEntry *entry = mHostTable.GetEntry(currentDot);
+     cookie = entry ? entry->Head() : nsnull;
+     for (; cookie; cookie = cookie->Next()) {
+       // if the cookie is secure and the host scheme isn't, we can't send it
+       if (cookie->IsSecure() && !isSecure) {
+         continue;
+       }
+ 
++      // if the cookie is httpOnly and it's not going directly to the HTTP
++      // connection, don't send it
++      if (cookie->IsHttpOnly() && !aHttpBound) {
++        continue;
++      }
++
+       // calculate cookie path length, excluding trailing '/'
+       PRUint32 cookiePathLen = cookie->Path().Length();
+       if (cookiePathLen > 0 && cookie->Path().Last() == '/') {
+         --cookiePathLen;
+       }
+ 
+       // if the nsIURI path is shorter than the cookie path, don't send it back
+       if (!StringBeginsWith(pathFromURI, Substring(cookie->Path(), 0, cookiePathLen))) {
+@@ -639,16 +636,41 @@
+     COOKIE_LOGSUCCESS(GET_COOKIE, aHostURI, cookieData, nsnull);
+     *aCookie = ToNewCString(cookieData);
+   }
+ 
+   return NS_OK;
+ }
+ 
+ NS_IMETHODIMP
++nsCookieService::GetCookieString(nsIURI     *aHostURI,
++                                 nsIChannel *aChannel,
++                                 char       **aCookie)
++{
++  // try to determine first party URI
++  nsCOMPtr<nsIURI> firstURI;
++  if (aChannel) {
++    nsCOMPtr<nsIHttpChannelInternal> httpInternal = do_QueryInterface(aChannel);
++    if (httpInternal)
++      httpInternal->GetDocumentURI(getter_AddRefs(firstURI));
++  }
++
++  return GetCookieStringFromHttpInternal(aHostURI, firstURI, aChannel, aCookie, PR_FALSE);
++}
++
++NS_IMETHODIMP
++nsCookieService::GetCookieStringFromHttp(nsIURI     *aHostURI,
++                                         nsIURI     *aFirstURI,
++                                         nsIChannel *aChannel,
++                                         char       **aCookie)
++{
++  return GetCookieStringFromHttpInternal(aHostURI, aFirstURI, aChannel, aCookie, PR_TRUE);
++}
++
++NS_IMETHODIMP
+ nsCookieService::SetCookieString(nsIURI     *aHostURI,
+                                  nsIPrompt  *aPrompt,
+                                  const char *aCookieHeader,
+                                  nsIChannel *aChannel)
+ {
+   // try to determine first party URI
+   nsCOMPtr<nsIURI> firstURI;
+ 
+@@ -847,16 +869,17 @@
+   nsInt64 currentTime = NOW_IN_SECONDS;
+ 
+   nsRefPtr<nsCookie> cookie =
+     nsCookie::Create(aName, aValue, aDomain, aPath,
+                      nsInt64(aExpiry),
+                      currentTime,
+                      aIsSession,
+                      aIsSecure,
++                     PR_FALSE,
+                      nsICookie::STATUS_UNKNOWN,
+                      nsICookie::POLICY_UNKNOWN);
+   if (!cookie) {
+     return NS_ERROR_OUT_OF_MEMORY;
+   }
+ 
+   AddInternal(cookie, currentTime, nsnull, nsnull);
+   return NS_OK;
+@@ -911,21 +934,21 @@
+   if (NS_FAILED(rv)) {
+     return rv;
+   }
+ 
+   static const char kTrue[] = "TRUE";
+ 
+   nsCAutoString buffer;
+   PRBool isMore = PR_TRUE;
+-  PRInt32 hostIndex = 0, isDomainIndex, pathIndex, secureIndex, expiresIndex, nameIndex, cookieIndex;
++  PRInt32 hostIndex, isDomainIndex, pathIndex, secureIndex, expiresIndex, nameIndex, cookieIndex;
+   nsASingleFragmentCString::char_iterator iter;
+   PRInt32 numInts;
+   PRInt64 expires;
+-  PRBool isDomain;
++  PRBool isDomain, isHttpOnly = PR_FALSE;
+   nsInt64 currentTime = NOW_IN_SECONDS;
+   // we use lastAccessedCounter to keep cookies in recently-used order,
+   // so we start by initializing to currentTime (somewhat arbitrary)
+   nsInt64 lastAccessedCounter = currentTime;
+   nsCookie *newCookie;
+ 
+   /* file format is:
+    *
+@@ -935,21 +958,36 @@
+    * isDomain is "TRUE" or "FALSE" (default to "FALSE")
+    * isSecure is "TRUE" or "FALSE" (default to "TRUE")
+    * expires is a PRInt64 integer
+    * note 1: cookie can contain tabs.
+    * note 2: cookies are written in order of lastAccessed time:
+    *         most-recently used come first; least-recently-used come last.
+    */
+ 
++  /*
++   * ...but due to bug 178933, we hide HttpOnly cookies from older code
++   * in a comment, so they don't expose HttpOnly cookies to JS.
++   *
++   * The format for HttpOnly cookies is
++   *
++   * #HttpOnly_host \t isDomain \t path \t secure \t expires \t name \t cookie
++   *
++   */
++
+   while (isMore && NS_SUCCEEDED(lineInputStream->ReadLine(buffer, &isMore))) {
+-    if (buffer.IsEmpty() || buffer.First() == '#') {
++    if (StringBeginsWith(buffer, NS_LITERAL_CSTRING(kHttpOnlyPrefix))) {
++      isHttpOnly = PR_TRUE;
++      hostIndex = sizeof(kHttpOnlyPrefix) - 1;
++    } else if (buffer.IsEmpty() || buffer.First() == '#') {
+       continue;
++    } else {
++      isHttpOnly = PR_FALSE;
++      hostIndex = 0;
+     }
+-
+     // this is a cheap, cheesy way of parsing a tab-delimited line into
+     // string indexes, which can be lopped off into substrings. just for
+     // purposes of obfuscation, it also checks that each token was found.
+     // todo: use iterators?
+     if ((isDomainIndex = buffer.FindChar('\t', hostIndex)     + 1) == 0 ||
+         (pathIndex     = buffer.FindChar('\t', isDomainIndex) + 1) == 0 ||
+         (secureIndex   = buffer.FindChar('\t', pathIndex)     + 1) == 0 ||
+         (expiresIndex  = buffer.FindChar('\t', secureIndex)   + 1) == 0 ||
+@@ -982,16 +1020,17 @@
+       nsCookie::Create(Substring(buffer, nameIndex, cookieIndex - nameIndex - 1),
+                        Substring(buffer, cookieIndex, buffer.Length() - cookieIndex),
+                        host,
+                        Substring(buffer, pathIndex, secureIndex - pathIndex - 1),
+                        nsInt64(expires),
+                        lastAccessedCounter,
+                        PR_FALSE,
+                        Substring(buffer, secureIndex, expiresIndex - secureIndex - 1).EqualsLiteral(kTrue),
++                       isHttpOnly,
+                        nsICookie::STATUS_UNKNOWN,
+                        nsICookie::POLICY_UNKNOWN);
+     if (!newCookie) {
+       return NS_ERROR_OUT_OF_MEMORY;
+     }
+ 
+     // trick: keep the cookies in most-recently-used order,
+     // by successively decrementing the lastAccessed time
+@@ -1077,28 +1116,37 @@
+    *
+    * isDomain is "TRUE" or "FALSE"
+    * isSecure is "TRUE" or "FALSE"
+    * expires is a PRInt64 integer
+    * note 1: cookie can contain tabs.
+    * note 2: cookies are written in order of lastAccessed time:
+    *         most-recently used come first; least-recently-used come last.
+    */
++
++  /*
++   * XXX but see above in ::Read for the HttpOnly hack
++   */
++   
+   nsCookie *cookie;
+   nsInt64 currentTime = NOW_IN_SECONDS;
+   char dateString[22];
+   PRUint32 dateLen;
+   for (PRUint32 i = 0; i < mCookieCount; ++i) {
+     cookie = NS_STATIC_CAST(nsCookie*, sortedCookieList.ElementAt(i));
+ 
+     // don't write entry if cookie has expired, or is a session cookie
+     if (cookie->IsSession() || cookie->Expiry() <= currentTime) {
+       continue;
+     }
+ 
++    // XXX hack for HttpOnly. see bug 178993.
++    if (cookie->IsHttpOnly()) {
++      bufferedOutputStream->Write(kHttpOnlyPrefix, sizeof(kHttpOnlyPrefix) - 1, &rv);
++    }
+     bufferedOutputStream->Write(cookie->Host().get(), cookie->Host().Length(), &rv);
+     if (cookie->IsDomain()) {
+       bufferedOutputStream->Write(kTrue, sizeof(kTrue) - 1, &rv);
+     } else {
+       bufferedOutputStream->Write(kFalse, sizeof(kFalse) - 1, &rv);
+     }
+     bufferedOutputStream->Write(cookie->Path().get(), cookie->Path().Length(), &rv);
+     if (cookie->IsSecure()) {
+@@ -1194,16 +1242,17 @@
+     nsCookie::Create(cookieAttributes.name,
+                      cookieAttributes.value,
+                      cookieAttributes.host,
+                      cookieAttributes.path,
+                      cookieAttributes.expiryTime,
+                      currentTime,
+                      cookieAttributes.isSession,
+                      cookieAttributes.isSecure,
++                     cookieAttributes.isHttpOnly,
+                      aStatus,
+                      aPolicy);
+   if (!cookie) {
+     return newCookie;
+   }
+ 
+   // check permissions from site permission list, or ask the user,
+   // to determine if we can set the cookie
+@@ -1338,16 +1387,19 @@
+     4. where appropriate, full <OCTET>s are allowed, where the spec dictates to
+        reject control chars or non-ASCII chars. This is erring on the loose
+        side, since there's probably no good reason to enforce this strictness.
+ 
+     5. cookie <NAME> is optional, where spec requires it. This is a fairly
+        trivial case, but allows the flexibility of setting only a cookie <VALUE>
+        with a blank <NAME> and is required by some sites (see bug 169091).
+ 
++    6. Attribute "HttpOnly", not covered in the RFCs, is supported
++       (see bug 178993).
++
+  ** Begin BNF:
+     token         = 1*<any allowed-chars except separators>
+     value         = token-value | quoted-string
+     token-value   = 1*<any allowed-chars except value-sep>
+     quoted-string = ( <"> *( qdtext | quoted-pair ) <"> )
+     qdtext        = <any allowed-chars except <">>             ; CR | LF removed by necko
+     quoted-pair   = "\" <any OCTET except NUL or cookie-sep>   ; CR | LF removed by necko
+     separators    = ";" | "="
+@@ -1372,16 +1424,17 @@
+     valid values for cookie-av (checked post-parsing) are:
+     cookie-av     = "Path"    "=" value
+                   | "Domain"  "=" value
+                   | "Expires" "=" value
+                   | "Max-Age" "=" value
+                   | "Comment" "=" value
+                   | "Version" "=" value
+                   | "Secure"
++                  | "HttpOnly"
+ 
+ ******************************************************************************/
+ 
+ // helper functions for GetTokenValue
+ static inline PRBool iswhitespace     (char c) { return c == ' '  || c == '\t'; }
+ static inline PRBool isterminator     (char c) { return c == '\n' || c == '\r'; }
+ static inline PRBool isquoteterminator(char c) { return isterminator(c) || c == '"'; }
+ static inline PRBool isvalueseparator (char c) { return isterminator(c) || c == ';'; }
+@@ -1478,24 +1531,27 @@
+ nsCookieService::ParseAttributes(nsDependentCString &aCookieHeader,
+                                  nsCookieAttributes &aCookieAttributes)
+ {
+   static const char kPath[]    = "path";
+   static const char kDomain[]  = "domain";
+   static const char kExpires[] = "expires";
+   static const char kMaxage[]  = "max-age";
+   static const char kSecure[]  = "secure";
++  static const char kHttpOnly[]  = "httponly";
+ 
+   nsASingleFragmentCString::const_char_iterator tempBegin, tempEnd;
+   nsASingleFragmentCString::const_char_iterator cookieStart, cookieEnd;
+   aCookieHeader.BeginReading(cookieStart);
+   aCookieHeader.EndReading(cookieEnd);
+ 
+   aCookieAttributes.isSecure = PR_FALSE;
+ 
++  aCookieAttributes.isHttpOnly = PR_FALSE;
++
+   nsDependentCSubstring tokenString(cookieStart, cookieStart);
+   nsDependentCSubstring tokenValue (cookieStart, cookieStart);
+   PRBool newCookie, equalsFound;
+ 
+   // extract cookie <NAME> & <VALUE> (first attribute), and copy the strings.
+   // if we find multiple cookies, return for processing
+   // note: if there's no '=', we assume token is <VALUE>. this is required by
+   //       some sites (see bug 169091).
+@@ -1532,16 +1588,21 @@
+       aCookieAttributes.expires = tokenValue;
+ 
+     else if (tokenString.LowerCaseEqualsLiteral(kMaxage))
+       aCookieAttributes.maxage = tokenValue;
+ 
+     // ignore any tokenValue for isSecure; just set the boolean
+     else if (tokenString.LowerCaseEqualsLiteral(kSecure))
+       aCookieAttributes.isSecure = PR_TRUE;
++
++    // ignore any tokenValue for isHttpOnly (see bug 178993);
++    // just set the boolean
++    else if (tokenString.LowerCaseEqualsLiteral(kHttpOnly))
++      aCookieAttributes.isHttpOnly = PR_TRUE;
+   }
+ 
+   // rebind aCookieHeader, in case we need to process another cookie
+   aCookieHeader.Rebind(cookieStart, cookieEnd);
+   return newCookie;
+ }
+ 
+ /******************************************************************************
+Index: mozilla/netwerk/cookie/src/nsCookieService.h
+===================================================================
+--- mozilla.orig/netwerk/cookie/src/nsCookieService.h	2007-07-16 10:53:19.000000000 +0000
++++ mozilla/netwerk/cookie/src/nsCookieService.h	2007-07-16 11:32:29.000000000 +0000
+@@ -217,11 +217,17 @@
+     PRUint16                      mMaxCookiesPerHost;
+ 
+     // private static member, used to cache a ptr to nsCookieService,
+     // so we can make nsCookieService a singleton xpcom object.
+     static nsCookieService        *gCookieService;
+ 
+     // this callback needs access to member functions
+     friend PLDHashOperator PR_CALLBACK removeExpiredCallback(nsCookieEntry *aEntry, void *aArg);
++
++    nsresult GetCookieStringFromHttpInternal(nsIURI     *aHostURI,
++                                                              nsIURI     *aFirstURI,
++                                                              nsIChannel *aChannel,
++                                                              char       **aCookie,
++                                                              PRBool     aHttpBound);
+ };
+ 
+ #endif // nsCookieService_h__

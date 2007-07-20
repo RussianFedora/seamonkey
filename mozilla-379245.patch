@@ -1,0 +1,44 @@
+---
+ js/src/jsinterp.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+Index: mozilla/js/src/jsinterp.c
+===================================================================
+--- mozilla.orig/js/src/jsinterp.c	2007-07-16 11:06:07.000000000 +0200
++++ mozilla/js/src/jsinterp.c	2007-07-16 11:06:17.000000000 +0200
+@@ -2025,16 +2025,17 @@
+                 cx->fp = fp = fp->down;
+                 JS_ARENA_RELEASE(&cx->stackPool, ifp->mark);
+ 
+                 /* Restore sp to point just above the return value. */
+                 fp->sp = vp + 1;
+                 RESTORE_SP(fp);
+ 
+                 /* Restore the calling script's interpreter registers. */
++                obj = NULL;
+                 script = fp->script;
+                 depth = (jsint) script->depth;
+                 pc = fp->pc;
+                 endpc = script->code + script->length;
+ 
+                 /* Store the generating pc for the return value. */
+                 vp[-depth] = (jsval)pc;
+ 
+@@ -3579,16 +3580,17 @@
+                     if (currentVersion != cx->version)
+                         js_SetVersion(cx, currentVersion);
+                 }
+ 
+                 /* Push the frame and set interpreter registers. */
+                 cx->fp = fp = &newifp->frame;
+                 pc = script->code;
+                 endpc = pc + script->length;
++                obj = NULL;
+                 inlineCallCount++;
+                 JS_RUNTIME_METER(rt, inlineCalls);
+                 continue;
+ 
+               bad_inline_call:
+                 script = fp->script;
+                 depth = (jsint) script->depth;
+                 goto out;

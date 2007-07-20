@@ -1,0 +1,156 @@
+---
+ toolkit/mozapps/plugins/content/pluginInstallerDatasource.js |   30 ++++++-----
+ toolkit/mozapps/plugins/content/pluginInstallerService.js    |    7 +-
+ toolkit/mozapps/plugins/content/pluginInstallerWizard.js     |    7 ++
+ 3 files changed, 28 insertions(+), 16 deletions(-)
+
+Index: mozilla/toolkit/mozapps/plugins/content/pluginInstallerDatasource.js
+===================================================================
+--- mozilla.orig/toolkit/mozapps/plugins/content/pluginInstallerDatasource.js	2007-07-16 11:06:06.000000000 +0200
++++ mozilla/toolkit/mozapps/plugins/content/pluginInstallerDatasource.js	2007-07-16 11:06:26.000000000 +0200
+@@ -104,37 +104,41 @@
+         target = null;
+         children = container.GetElements();
+ 
+         var child = children.getNext();
+         if (child instanceof Components.interfaces.nsIRDFResource){
+           target = child;
+         }
+ 
+-        function getPFSValueFromRDF(aValue, aDatasource, aRDFService){
++        var rdfs = this._rdfService;
++
++        function getPFSValueFromRDF(aValue){
+           var rv = null;
+ 
+-          var myTarget = aDatasource.GetTarget(target, aRDFService.GetResource(PFS_NS + aValue), true);
++          var myTarget = aDatasource.GetTarget(target, rdfs.GetResource(PFS_NS + aValue), true);
+           if (myTarget)
+             rv = myTarget.QueryInterface(Components.interfaces.nsIRDFLiteral).Value;
+ 
+           return rv;
+         }
+ 
+-        pluginInfo = new Object();
+-        pluginInfo.name = getPFSValueFromRDF("name", aDatasource, this._rdfService);
+-        pluginInfo.pid = getPFSValueFromRDF("guid", aDatasource, this._rdfService);
+-        pluginInfo.version = getPFSValueFromRDF("version", aDatasource, this._rdfService);
+-        pluginInfo.IconUrl = getPFSValueFromRDF("IconUrl", aDatasource, this._rdfService);
+-        pluginInfo.XPILocation = getPFSValueFromRDF("XPILocation", aDatasource, this._rdfService);
+-        pluginInfo.InstallerShowsUI = getPFSValueFromRDF("InstallerShowsUI", aDatasource, this._rdfService);
+-        pluginInfo.manualInstallationURL = getPFSValueFromRDF("manualInstallationURL", aDatasource, this._rdfService);
+-        pluginInfo.requestedMimetype = getPFSValueFromRDF("requestedMimetype", aDatasource, this._rdfService);
+-        pluginInfo.licenseURL = getPFSValueFromRDF("licenseURL", aDatasource, this._rdfService);
+-        pluginInfo.needsRestart = getPFSValueFromRDF("needsRestart", aDatasource, this._rdfService);
++        pluginInfo = {
++          name: getPFSValueFromRDF("name"),
++          pid: getPFSValueFromRDF("guid"),
++          version: getPFSValueFromRDF("version"),
++          IconUrl: getPFSValueFromRDF("IconUrl"),
++          XPILocation: getPFSValueFromRDF("XPILocation"),
++          XPIHash: getPFSValueFromRDF("XPIHash"),
++          InstallerShowsUI: getPFSValueFromRDF("InstallerShowsUI"),
++          manualInstallationURL: getPFSValueFromRDF("manualInstallationURL"),
++          requestedMimetype: getPFSValueFromRDF("requestedMimetype"),
++          licenseURL: getPFSValueFromRDF("licenseURL"),
++          needsRestart: getPFSValueFromRDF("needsRestart")
++        };
+       }
+       catch (ex){}
+     }
+     catch (ex){}
+     
+     gPluginInstaller.pluginInfoReceived(pluginInfo);
+   },
+ 
+Index: mozilla/toolkit/mozapps/plugins/content/pluginInstallerService.js
+===================================================================
+--- mozilla.orig/toolkit/mozapps/plugins/content/pluginInstallerService.js	2007-07-16 11:06:06.000000000 +0200
++++ mozilla/toolkit/mozapps/plugins/content/pluginInstallerService.js	2007-07-16 11:06:26.000000000 +0200
+@@ -38,22 +38,25 @@
+ var PluginInstallService = {
+   
+   init: function () 
+   {
+   },
+ 
+   pluginPidArray: null,
+ 
+-  startPluginInsallation: function (aPluginXPIUrlsArray, aPluginPidArray) {
++  startPluginInsallation: function (aPluginXPIUrlsArray,
++                                    aPluginHashes,
++                                    aPluginPidArray) {
+      this.pluginPidArray = aPluginPidArray;
+ 
+      var xpiManager = Components.classes["@mozilla.org/xpinstall/install-manager;1"]
+                                 .createInstance(Components.interfaces.nsIXPInstallManager);
+-     xpiManager.initManagerFromChrome(aPluginXPIUrlsArray, aPluginXPIUrlsArray.length, this);
++     xpiManager.initManagerWithHashes(aPluginXPIUrlsArray, aPluginHashes,
++                                      aPluginXPIUrlsArray.length, this);
+   },
+ 
+   // XPI progress listener stuff
+   onStateChange: function (aIndex, aState, aValue)
+   {
+     // get the pid to return to the wizard
+     var pid = this.pluginPidArray[aIndex];
+     var errorMsg;
+Index: mozilla/toolkit/mozapps/plugins/content/pluginInstallerWizard.js
+===================================================================
+--- mozilla.orig/toolkit/mozapps/plugins/content/pluginInstallerWizard.js	2007-07-16 11:06:06.000000000 +0200
++++ mozilla/toolkit/mozapps/plugins/content/pluginInstallerWizard.js	2007-07-16 11:06:26.000000000 +0200
+@@ -319,31 +319,35 @@
+   this.canAdvance(false);
+   this.canRewind(false);
+ 
+   // since the user can choose what plugins to install, we need to store
+   // which ones were choosen, as nsIXPInstallManager returns an index and not the
+   // mimetype.  So store the pids.
+ 
+   var pluginURLArray = new Array();
++  var pluginHashArray = new Array();
+   var pluginPidArray = new Array();
+ 
+   for (pluginInfoItem in this.mPluginInfoArray){
+     var pluginItem = this.mPluginInfoArray[pluginInfoItem];
+ 
+     // only push to the array if it has an XPILocation, else nsIXPInstallManager
+     // will complain.
+     if (pluginItem.toBeInstalled && pluginItem.XPILocation && pluginItem.licenseAccepted) {
+       pluginURLArray.push(pluginItem.XPILocation);
++      pluginHashArray.push(pluginItem.XPIHash);
+       pluginPidArray.push(pluginItem.pid);
+     }
+   }
+ 
+   if (pluginURLArray.length > 0)
+-    PluginInstallService.startPluginInsallation(pluginURLArray, pluginPidArray);
++    PluginInstallService.startPluginInsallation(pluginURLArray,
++                                                pluginHashArray,
++                                                pluginPidArray);
+   else
+     this.advancePage(null, true, false, false);
+ }
+ 
+ /*
+   0    starting download
+   1    download finished
+   2    starting installation
+@@ -594,16 +598,17 @@
+ }
+ 
+ function PluginInfo(aResult) {
+   this.name = aResult.name;
+   this.pid = aResult.pid;
+   this.version = aResult.version;
+   this.IconUrl = aResult.IconUrl;
+   this.XPILocation = aResult.XPILocation;
++  this.XPIHash = aResult.XPIHash;
+   this.InstallerShowsUI = aResult.InstallerShowsUI;
+   this.manualInstallationURL = aResult.manualInstallationURL;
+   this.requestedMimetype = aResult.requestedMimetype;
+   this.licenseURL = aResult.licenseURL;
+   this.needsRestart = (aResult.needsRestart == "true");
+ 
+   this.error = null;
+   this.toBeInstalled = true;

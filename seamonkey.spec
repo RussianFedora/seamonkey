@@ -11,12 +11,13 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.9
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
 
-Source0:        seamonkey-%{version}.source.tar.bz2
+#Source0:        seamonkey-%{version}.source.tar.bz2
+Source0:        mozilla-180-20070717.tar.bz2
 Source1:        seamonkey.sh.in
 Source2:        seamonkey-icon.png
 Source4:        seamonkey.desktop
@@ -32,6 +33,7 @@ Source20:       seamonkey-fedora-default-prefs.js
 Source100:      find-external-requires
 
 Patch1:         firefox-1.0-prdtoa.patch
+Patch2:         mozilla-version.patch
 Patch3:         firefox-1.5.0.10-nss-system-nspr.patch
 Patch4:         firefox-1.5.0.10-with-system-nss.patch
 Patch5:         firefox-1.1-visibility.patch
@@ -39,6 +41,13 @@ Patch6:         seamonkey-1.0.1-dumpstack.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
+
+Patch60:        mozilla-358594.patch
+Patch61:        mozilla-379245.patch
+Patch62:        mozilla-382532.patch
+Patch63:        mozilla-178993.patch
+Patch65:        mozilla-384925.patch
+Patch66:        mozilla-381300.patch
 
 # font system fixes
 Patch81:        firefox-1.5-nopangoxft.patch
@@ -120,6 +129,7 @@ application formerly known as Mozilla Application Suite.
 
 %setup -q -n mozilla
 %patch1  -p0
+%patch2  -p2
 %patch3  -p1
 %patch4  -p1
 
@@ -134,6 +144,12 @@ application formerly known as Mozilla Application Suite.
 %patch21 -p1
 %patch22 -p1
 %patch42 -p0
+%patch60 -p1
+%patch61 -p1
+%patch62 -p1
+%patch63 -p1
+%patch65 -p1
+%patch66 -p1
 %patch81 -p1
 %patch82 -p1
 %patch83 -p1
@@ -454,6 +470,11 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Jul 20 2007 Kai Engert <kengert@redhat.com> - 1.0.9-2
+- Add a patch to stick with gecko version 1.8.0.12
+- Update to latest snapshot of Mozilla 1.8.0 branch
+- Include patches for Mozilla bugs 379245, 384925, 178993,
+  381300 (+382686), 358594 (+380933), 382532 (+382503)
 * Thu May 31 2007 Kai Engert <kengert@redhat.com> 1.0.9-1
 - Update to 1.0.9
 * Wed Mar 01 2007 Kai Engert <kengert@redhat.com> 1.0.8-0.6.2
