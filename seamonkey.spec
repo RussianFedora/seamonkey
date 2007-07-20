@@ -10,7 +10,7 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.2
+Version:        1.1.3
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
@@ -422,6 +422,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Jul 20 2007 Kai Engert <kengert@redhat.com> - 1.1.3-1
+- SeaMonkey 1.1.3
 * Thu May 31 2007 Kai Engert <kengert@redhat.com> 1.1.2-1
 - SeaMonkey 1.1.2
 * Wed Feb 28 2007 Kai Engert <kengert@redhat.com> 1.1.1-2
