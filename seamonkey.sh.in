@@ -67,9 +67,9 @@ export LD_LIBRARY_PATH
 ##
 if [ "$MOZ_PLUGIN_PATH" ]
 then
-  MOZ_PLUGIN_PATH=$MOZ_PLUGIN_PATH:LIBDIR/mozilla/plugins:LIBDIR/seamonkey-MOZILLA_VERSION/plugins
+  MOZ_PLUGIN_PATH=$MOZ_PLUGIN_PATH:LIBDIR/mozilla/plugins-wrapped:LIBDIR/seamonkey-MOZILLA_VERSION/plugins-wrapped
 else
-  MOZ_PLUGIN_PATH=LIBDIR/mozilla/plugins:LIBDIR/seamonkey-MOZILLA_VERSION/plugins
+  MOZ_PLUGIN_PATH=LIBDIR/mozilla/plugins-wrapped:LIBDIR/seamonkey-MOZILLA_VERSION/plugins-wrapped
 fi
 export MOZ_PLUGIN_PATH
 
@@ -111,6 +111,9 @@ function open_compose() {
 }
 
 # OK, here's where all the real work gets done
+
+# Configure plugins
+/usr/bin/seamonkey-plugin-config
 
 # check to see if there's an already running instance or not
 ALREADY_RUNNING=`check_running`
