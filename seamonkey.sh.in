@@ -51,6 +51,17 @@ MOZILLA_FIVE_HOME="LIBDIR/seamonkey-MOZILLA_VERSION"
 export MOZILLA_FIVE_HOME
 
 ##
+## Select the propper plugin dir
+## Wrapped plug-ins are located in /lib/mozilla/plugins-wrapped
+##
+if [ -x "LIBDIR/nspluginwrapper/npviewer" ]
+then
+  MOZ_PLUGIN_DIR="plugins-wrapped"
+else
+  MOZ_PLUGIN_DIR="plugins"
+fi
+
+##
 ## Set LD_LIBRARY_PATH
 ##
 if [ "$LD_LIBRARY_PATH" ]
@@ -67,9 +78,9 @@ export LD_LIBRARY_PATH
 ##
 if [ "$MOZ_PLUGIN_PATH" ]
 then
-  MOZ_PLUGIN_PATH=$MOZ_PLUGIN_PATH:LIBDIR/mozilla/plugins-wrapped:LIBDIR/seamonkey-MOZILLA_VERSION/plugins-wrapped
+  MOZ_PLUGIN_PATH=$MOZ_PLUGIN_PATH:LIBDIR/mozilla/$MOZ_PLUGIN_DIR:LIBDIR/seamonkey-MOZILLA_VERSION/plugins
 else
-  MOZ_PLUGIN_PATH=LIBDIR/mozilla/plugins-wrapped:LIBDIR/seamonkey-MOZILLA_VERSION/plugins-wrapped
+  MOZ_PLUGIN_PATH=LIBDIR/mozilla/$MOZ_PLUGIN_DIR:LIBDIR/seamonkey-MOZILLA_VERSION/plugins
 fi
 export MOZ_PLUGIN_PATH
 
@@ -113,7 +124,13 @@ function open_compose() {
 # OK, here's where all the real work gets done
 
 # Configure plugins
-/usr/bin/seamonkey-plugin-config
+##
+## If plugins are wrapped, check them
+##
+if [ -x "LIBDIR/nspluginwrapper/npviewer" ]
+then
+  /usr/bin/seamonkey-plugin-config
+fi
 
 # check to see if there's an already running instance or not
 ALREADY_RUNNING=`check_running`

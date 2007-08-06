@@ -15,7 +15,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.3
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
@@ -464,6 +464,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Mon Aug 6 2007 Martin Stransky <stransky@redhat.com> 1.1.3-5
+- unwrapped plugins moved to the old location
 * Mon Jul 30 2007 Martin Stransky <stransky@redhat.com> 1.1.3-4
 - added nspluginwrapper support
 * Fri Jul 27 2007 Martin Stransky <stransky@redhat.com> - 1.1.3-3
