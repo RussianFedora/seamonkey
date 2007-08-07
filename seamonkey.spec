@@ -8,20 +8,15 @@
 %define builddir %{_builddir}/mozilla
 %define mozdir %{_libdir}/seamonkey-%{version}
 
-%define plugin_config_version 1.1
-%define plugin_config_name plugin-config-%{plugin_config_version}
-%define plugin_config_binary plugin-configuration
-
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.3
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}.source.tar.bz2
-Source1:        plugin-config-1.1.tar.gz
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -33,7 +28,6 @@ Source17:       mozilla-psm-exclude-list
 Source18:       mozilla-xpcom-exclude-list
 Source19:       seamonkey-fedora-default-bookmarks.html
 Source20:       seamonkey-fedora-default-prefs.js
-Source21:       seamonkey-plugin-config.sh.in
 Source100:      find-external-requires
 
 Patch1:         firefox-1.0-prdtoa.patch
@@ -118,7 +112,7 @@ application formerly known as Mozilla Application Suite.
 
 %prep
 
-%setup -q -n mozilla -a 1
+%setup -q -n mozilla
 %patch1  -p0
 %patch2  -p1
 %patch21 -p1
@@ -162,12 +156,6 @@ BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
 
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make export
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make %{?_smp_mflags} libs
-
-#Build plugin configuration utility
-pushd %{plugin_config_name}
-./configure --prefix=/usr CFLAGS="$RPM_OPT_FLAGS"
-make
-popd
 
 %install
 %{__rm} -rf $RPM_BUILD_ROOT
@@ -311,13 +299,6 @@ cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}/g' \
 
 chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 
-# install our seamonkey-plugin-config.sh file
-cat %{SOURCE21} | sed -e 's/MOZILLA_VERSION/%{version}/g' \
-		     -e 's,LIBDIR,%{_libdir},g' > \
-  $RPM_BUILD_ROOT/usr/bin/seamonkey-plugin-config
-
-chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey-plugin-config
-
 # set up our default preferences
 %{__cat} %{SOURCE20} | %{__sed} -e 's,SEAMONKEY_RPM_VR,%{version}-%{release},g' > \
         $RPM_BUILD_ROOT/fc-default-prefs
@@ -327,7 +308,6 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey-plugin-config
 # we use /usr/lib/mozilla/plugins which is the version-independent
 # place that plugins can be installed
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_libdir}/mozilla/plugins
-%{__mkdir_p} $RPM_BUILD_ROOT/%{_libdir}/mozilla/plugins-wrapped
 
 # ghost files
 touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
@@ -344,16 +324,6 @@ touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
 touch $RPM_BUILD_ROOT%{mozdir}/components/compreg.dat
 touch $RPM_BUILD_ROOT%{mozdir}/components/xpti.dat
 
-# Install plugin-config utility
-pushd %{plugin_config_name}
-DESTDIR=$RPM_BUILD_ROOT make install
-
-cd $RPM_BUILD_ROOT/usr/bin
-mv %{plugin_config_binary} $RPM_BUILD_ROOT%{mozdir}
-
-cd $RPM_BUILD_ROOT/usr/doc
-mv plugin-config $RPM_BUILD_ROOT%{mozdir}
-popd
 
 %clean
 %{__rm} -rf $RPM_BUILD_ROOT
@@ -370,7 +340,6 @@ update-desktop-database %{_datadir}/applications
 %files -f seamonkey.list
 %defattr(-,root,root)
 %{_bindir}/seamonkey
-%{_bindir}/seamonkey-plugin-config
 %{_datadir}/pixmaps/seamonkey-icon.png
 %{_datadir}/pixmaps/seamonkey-mail-icon.png
 
@@ -380,7 +349,6 @@ update-desktop-database %{_datadir}/applications
 %{_mandir}/man1/seamonkey.1.gz
 
 %dir %{_libdir}/mozilla/plugins
-%dir %{_libdir}/mozilla/plugins-wrapped
 
 %dir %{mozdir}
 %dir %{mozdir}/init.d
@@ -459,11 +427,10 @@ update-desktop-database %{_datadir}/applications
 %{_datadir}/applications/mozilla-%{name}.desktop
 %{_datadir}/applications/mozilla-%{name}-mail.desktop
 
-%{mozdir}/%{plugin_config_binary}
-%{mozdir}/plugin-config/*
-
 
 %changelog
+* Mon Aug 7 2007 Martin Stransky <stransky@redhat.com> 1.1.3-6
+- removed plugin configuration utility
 * Mon Aug 6 2007 Martin Stransky <stransky@redhat.com> 1.1.3-5
 - unwrapped plugins moved to the old location
 * Mon Jul 30 2007 Martin Stransky <stransky@redhat.com> 1.1.3-4

@@ -54,7 +54,7 @@ export MOZILLA_FIVE_HOME
 ## Select the propper plugin dir
 ## Wrapped plug-ins are located in /lib/mozilla/plugins-wrapped
 ##
-if [ -x "LIBDIR/nspluginwrapper/npviewer" ]
+if [ -x "/usr/bin/mozilla-plugin-config" ]
 then
   MOZ_PLUGIN_DIR="plugins-wrapped"
 else
@@ -127,9 +127,9 @@ function open_compose() {
 ##
 ## If plugins are wrapped, check them
 ##
-if [ -x "LIBDIR/nspluginwrapper/npviewer" ]
+if [ -x "/usr/bin/mozilla-plugin-config" ]
 then
-  /usr/bin/seamonkey-plugin-config
+  /usr/bin/mozilla-plugin-config
 fi
 
 # check to see if there's an already running instance or not
