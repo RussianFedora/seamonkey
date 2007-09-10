@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.3
-Release:        7%{?dist}
+Release:        8%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -429,6 +429,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Mon Sep 10 2007 Martin Stransky <stransky@redhat.com> 1.1.3-8
+- added fix for #246248 - firefox crashes when searching for word "do"
 * Tue Aug 28 2007 Kai Engert <kengert@redhat.com> - 1.1.3-7
 - Updated license tag
 * Mon Aug 7 2007 Martin Stransky <stransky@redhat.com> 1.1.3-6
