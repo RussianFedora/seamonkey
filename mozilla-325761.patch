@@ -1,0 +1,27 @@
+---
+ caps/src/nsScriptSecurityManager.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: mozilla/caps/src/nsScriptSecurityManager.cpp
+===================================================================
+--- mozilla.orig/caps/src/nsScriptSecurityManager.cpp
++++ mozilla/caps/src/nsScriptSecurityManager.cpp
+@@ -1353,17 +1353,17 @@
+         { "aim",             AllowProtocol  },
+         { "data",            AllowProtocol  },
+         { "keyword",         DenyProtocol   },
+         { "resource",        ChromeProtocol },
+         { "gopher",          AllowProtocol  },
+         { "datetime",        DenyProtocol   },
+         { "finger",          AllowProtocol  },
+         { "res",             DenyProtocol   },
+-        { "x-jsd",           ChromeProtocol },
++        { "x-jsd",           DenyProtocol   },
+         { "wyciwyg",         DenyProtocol   }
+     };
+ 
+     NS_NAMED_LITERAL_STRING(errorTag, "CheckLoadURIError");
+     for (unsigned i=0; i < sizeof(protocolList)/sizeof(protocolList[0]); i++)
+     {
+         if (targetScheme.LowerCaseEqualsASCII(protocolList[i].name))
+         {

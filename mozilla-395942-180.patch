@@ -1,0 +1,229 @@
+---
+ browser/components/nsBrowserContentHandler.js           |   28 +++++++++++++---
+ toolkit/mozapps/extensions/src/nsExtensionManager.js.in |    6 +++
+ xpfe/bootstrap/Makefile.in                              |    1 
+ xpfe/bootstrap/nsAppRunner.cpp                          |   21 ++++++++++++
+ 4 files changed, 51 insertions(+), 5 deletions(-)
+
+Index: mozilla/browser/components/nsBrowserContentHandler.js
+===================================================================
+--- mozilla.orig/browser/components/nsBrowserContentHandler.js
++++ mozilla/browser/components/nsBrowserContentHandler.js
+@@ -44,16 +44,17 @@
+ const nsICommandLine         = Components.interfaces.nsICommandLine;
+ const nsICommandLineHandler  = Components.interfaces.nsICommandLineHandler;
+ const nsIContentHandler      = Components.interfaces.nsIContentHandler;
+ const nsIDocShellTreeItem    = Components.interfaces.nsIDocShellTreeItem;
+ const nsIDOMChromeWindow     = Components.interfaces.nsIDOMChromeWindow;
+ const nsIDOMWindow           = Components.interfaces.nsIDOMWindow;
+ const nsIFactory             = Components.interfaces.nsIFactory;
+ const nsIFileURL             = Components.interfaces.nsIFileURL;
++const nsIJARURI              = Components.interfaces.nsIJARURI;
+ const nsIHttpProtocolHandler = Components.interfaces.nsIHttpProtocolHandler;
+ const nsIInterfaceRequestor  = Components.interfaces.nsIInterfaceRequestor;
+ const nsIPrefBranch          = Components.interfaces.nsIPrefBranch;
+ const nsIPrefLocalizedString = Components.interfaces.nsIPrefLocalizedString;
+ const nsISupportsString      = Components.interfaces.nsISupportsString;
+ const nsIURIFixup            = Components.interfaces.nsIURIFixup;
+ const nsIWebNavigation       = Components.interfaces.nsIWebNavigation;
+ const nsIWindowMediator      = Components.interfaces.nsIWindowMediator;
+@@ -345,22 +346,39 @@
+     }
+ 
+     var chromeParam = cmdLine.handleFlagWithParam("chrome", false);
+     if (chromeParam) {
+ 
+       // Handle the old preference dialog URL separately (bug 285416)
+       if (chromeParam == "chrome://browser/content/pref/pref.xul") {
+         openPreferences();
+-      } else {
+-        var features = "chrome,dialog=no,all" + this.getFeatures(cmdLine);
+-        openWindow(null, chromeParam, "_blank", features, "");
+-      }
++        cmdLine.preventDefault = true;
++      } else try {
++        // only load URIs which do not inherit chrome privs.
++        cmdLine.preventDefault = true;
+ 
+-      cmdLine.preventDefault = true;
++        // normally would call checkLoadURI(..., DISALLOW_SCRIPT_OR_DATA)
++        // for this, but in this context we crash when the security manager
++        // tries to throw an exception (no window object here). On the branch
++        // we need to simulate the important bits
++        var uri = resolveURIInternal(cmdLine, chromeParam);
++        while (uri instanceof nsIJARURI) {
++          // unpack to find the real scheme
++          uri = uri.JARFile;
++        }
++        if (!uri.schemeIs("javascript") && !uri.schemeIs("data")) {
++          var features = "chrome,dialog=no,all" + this.getFeatures(cmdLine);
++          openWindow(null, uri.spec, "_blank", features, "");
++          cmdLine.preventDefault = true;
++        }
++      }
++      catch (e) {
++        Components.utils.reportError(e);
++      }
+     }
+     if (cmdLine.handleFlag("preferences", false)) {
+       openPreferences();
+       cmdLine.preventDefault = true;
+     }
+     if (cmdLine.handleFlag("silent", false))
+       cmdLine.preventDefault = true;
+   },
+Index: mozilla/toolkit/mozapps/extensions/src/nsExtensionManager.js.in
+===================================================================
+--- mozilla.orig/toolkit/mozapps/extensions/src/nsExtensionManager.js.in
++++ mozilla/toolkit/mozapps/extensions/src/nsExtensionManager.js.in
+@@ -2506,16 +2506,22 @@
+   /**
+    * Installs an XPI/JAR file into the KEY_APP_GLOBAL install location.
+    * @param   file
+    *          The XPI/JAR file to extract
+    */
+   _installGlobalItem: function(file) {
+     if (!file || !file.exists())
+       throw new Error("Unable to find the file specified on the command line!");
++#ifdef XP_WIN
++    // make sure the file is local on Windows
++    file.normalize();
++    if (file.path[1] != ':')
++      throw new Error("Can't install global chrome from non-local file "+file.path);
++#endif
+     var installManifestFile = extractRDFFileToTempDir(file, FILE_INSTALL_MANIFEST, true);
+     if (!installManifestFile.exists())
+       throw new Error("The package is missing an install manifest!");
+     var installManifest = getInstallManifest(installManifestFile);
+     installManifestFile.remove(false);
+     var installData = this._getInstallData(installManifest);
+     var installer = new Installer(installManifest, installData.id,
+                                   InstallLocations.get(KEY_APP_GLOBAL),
+Index: mozilla/xpfe/bootstrap/nsAppRunner.cpp
+===================================================================
+--- mozilla.orig/xpfe/bootstrap/nsAppRunner.cpp
++++ mozilla/xpfe/bootstrap/nsAppRunner.cpp
+@@ -87,16 +87,19 @@
+ #include "nsIEventQueueService.h"
+ #include "nsDirectoryServiceDefs.h"
+ #include "nsBuildID.h"
+ #include "nsIWindowCreator.h"
+ #include "nsIWindowWatcher.h"
+ #include "nsILocalFile.h"
+ #include "nsILookAndFeel.h"
+ #include "nsIProcess.h"
++#include "nsIIOService.h"
++#include "nsIJARURI.h"
++#include "nsNetCID.h"
+ 
+ #ifdef MOZ_XPINSTALL
+ #include "InstallCleanupDefines.h"
+ #include "nsISoftwareUpdate.h"
+ #endif
+ 
+ // Interfaces Needed
+ #include "nsIXULWindow.h"
+@@ -578,16 +581,34 @@
+         if (openWindowWithArgs) {
+           NS_ConvertASCIItoUTF16 cmdArgs(cmdResult);
+ #ifdef DEBUG_CMD_LINE
+           printf("opening %s with %s\n", chromeUrlForTask.get(), "OpenWindow");
+ #endif /* DEBUG_CMD_LINE */
+           rv = OpenWindow(chromeUrlForTask, cmdArgs);
+         }
+         else {
++          // We need to emulate checkLoadURI because we don't have a window yet
++          nsCOMPtr<nsIIOService> ioService = do_GetService(NS_IOSERVICE_CONTRACTID, &rv);
++          if (NS_FAILED(rv)) return rv;
++          nsCOMPtr<nsIURI> baseURI;
++          rv = ioService->NewURI(cmdResult, nsnull, nsnull, getter_AddRefs(baseURI));
++          if (NS_FAILED(rv)) return rv;
++          nsCOMPtr<nsIJARURI> jarURI(do_QueryInterface(baseURI));
++          while (jarURI) {
++            rv = jarURI->GetJARFile(getter_AddRefs(baseURI));
++            if (NS_FAILED(rv)) return rv;
++            jarURI = do_QueryInterface(baseURI);
++          }
++          PRBool scriptOrData = PR_FALSE;
++          baseURI->SchemeIs("javascript", &scriptOrData);
++          if (!scriptOrData)
++            baseURI->SchemeIs("data", &scriptOrData);
++          if (scriptOrData)
++            return NS_ERROR_FAILURE;
+ #ifdef DEBUG_CMD_LINE
+           printf("opening %s with %s\n", cmdResult.get(), "OpenWindow");
+ #endif /* DEBUG_CMD_LINE */
+           rv = OpenWindow(cmdResult, width, height);
+           if (NS_FAILED(rv)) return rv;
+         }
+         // If we get here without an error, then a window was opened OK.
+         if (NS_SUCCEEDED(rv)) {
+Index: mozilla/xpfe/bootstrap/Makefile.in
+===================================================================
+--- mozilla.orig/xpfe/bootstrap/Makefile.in
++++ mozilla/xpfe/bootstrap/Makefile.in
+@@ -95,16 +95,17 @@
+ 		  windowwatcher \
+ 		  embed_base \
+ 		  embedcomponents \
+ 		  docshell \
+ 		  locale \
+ 		  profile \
+ 		  chrome \
+ 		  xremoteclient \
++		  jar \
+ 		  $(NULL)
+ # for jprof
+ REQUIRES	+= jprof
+ 
+ ifdef NS_TRACE_MALLOC
+ REQUIRES	+= tracemalloc
+ endif
+ 
+--- mozilla/mail/components/nsMailDefaultHandler.js.old	2006-04-26 05:49:00.000000000 +0200
++++ mozilla/mail/components/nsMailDefaultHandler.js	2007-10-17 12:42:21.000000000 +0200
+@@ -41,6 +41,7 @@ const nsICommandLine           = Compone
+ const nsICommandLineHandler    = Components.interfaces.nsICommandLineHandler;
+ const nsIDOMWindowInternal     = Components.interfaces.nsIDOMWindowInternal;
+ const nsIFactory               = Components.interfaces.nsIFactory;
++const nsIJARURI                = Components.interfaces.nsIJARURI;
+ const nsISupportsString        = Components.interfaces.nsISupportsString;
+ const nsIWindowMediator        = Components.interfaces.nsIWindowMediator;
+ const nsIWindowWatcher         = Components.interfaces.nsIWindowWatcher;
+@@ -186,11 +187,31 @@ var nsMailDefaultHandler = {
+                              .getService(nsIWindowWatcher);
+       var argstring = Components.classes["@mozilla.org/supports-string;1"]
+                                 .createInstance(nsISupportsString);
+-      wwatch.openWindow(null, chromeParam, "_blank",
+-                        "chrome,dialog=no,all", argstring);
+-      cmdLine.preventDefault = true;
++
++      try {
++        // only load URIs which do not inherit chrome privs.
++
++        // normally would call checkLoadURI( ,DISALLOW_SCRIPT_OR_DATA)
++        // for this, but in this context we crash when the security manager
++        // tries to throw an exception (no window object here). On the branch
++        // we need to simulate the important bits
++        var uri = resolveURIInternal(cmdLine, chromeParam);
++        while (uri instanceof nsIJARURI) {
++          // unpack to find the real scheme
++          uri = uri.JARFile;
++        }
++        if (!uri.schemeIs("javascript") && !uri.schemeIs("data")) {
++          wwatch.openWindow(null, uri.spec, "_blank",
++                            "chrome,dialog=no,all", argstring);
++          cmdLine.preventDefault = true;
++        }
++      }
++      catch (e) {
++        dump(e);
++        throw Components.results.NS_ERROR_ABORT;
++      }
+     }
+-    
++
+     var count = cmdLine.length;
+     if (count) {
+       var i = 0;
+

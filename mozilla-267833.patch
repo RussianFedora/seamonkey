@@ -1,0 +1,756 @@
+---
+ content/base/src/nsDocument.cpp                   |   21 ++++
+ content/base/src/nsDocument.h                     |    3 
+ content/html/document/src/nsHTMLContentSink.cpp   |    3 
+ content/xbl/src/nsBindingManager.cpp              |   98 +++++++++++++++++++++-
+ content/xbl/src/nsBindingManager.h                |   36 +++++++-
+ content/xbl/src/nsXBLResourceLoader.cpp           |    9 --
+ content/xul/templates/src/nsXULContentBuilder.cpp |    4 
+ layout/base/nsCSSFrameConstructor.cpp             |   18 ----
+ layout/base/nsCSSFrameConstructor.h               |   13 ++
+ layout/base/nsPresShell.cpp                       |   20 ++++
+ 10 files changed, 195 insertions(+), 30 deletions(-)
+
+Index: mozilla/content/base/src/nsDocument.cpp
+===================================================================
+--- mozilla.orig/content/base/src/nsDocument.cpp	2007-10-09 15:26:43.000000000 +0200
++++ mozilla/content/base/src/nsDocument.cpp	2007-10-09 15:27:15.000000000 +0200
+@@ -974,22 +974,24 @@
+ {
+   if (mBindingManager || mCSSLoader || mNodeInfoManager) {
+     return NS_ERROR_ALREADY_INITIALIZED;
+   }
+ 
+   mLinkMap.Init();
+ 
+   // Force initialization.
+-  nsBindingManager *bindingManager = new nsBindingManager();
++  nsBindingManager *bindingManager = new nsBindingManager(this);
+   NS_ENSURE_TRUE(bindingManager, NS_ERROR_OUT_OF_MEMORY);
+   mBindingManager = bindingManager;
+ 
+   // The binding manager must always be the first observer of the document.
+-  mObservers.PrependElement(bindingManager);
++  if (!mObservers.PrependElement(bindingManager)) {
++    return NS_ERROR_OUT_OF_MEMORY;
++  }
+ 
+   mOnloadBlocker = new nsOnloadBlocker();
+   NS_ENSURE_TRUE(mOnloadBlocker, NS_ERROR_OUT_OF_MEMORY);
+   
+   NS_NewCSSLoader(this, &mCSSLoader);
+   NS_ENSURE_TRUE(mCSSLoader, NS_ERROR_OUT_OF_MEMORY);
+   // Assume we're not HTML and not quirky, until we know otherwise
+   mCSSLoader->SetCaseSensitive(PR_TRUE);
+@@ -2230,28 +2232,43 @@
+   }
+ 
+   return mObservers.Contains(aObserver);
+ }
+ 
+ void
+ nsDocument::BeginUpdate(nsUpdateType aUpdateType)
+ {
++  if (mUpdateNestLevel == 0) {
++    nsIBindingManager* bm = mBindingManager;
++    NS_STATIC_CAST(nsBindingManager*, bm)->BeginOutermostUpdate();
++  }
++  
++  ++mUpdateNestLevel;
+   if (mScriptLoader) {
+     NS_STATIC_CAST(nsScriptLoader*,
+                    NS_STATIC_CAST(nsIScriptLoader*,
+                                   mScriptLoader))->AddExecuteBlocker();
+   }
+   NS_DOCUMENT_NOTIFY_OBSERVERS(BeginUpdate, (this, aUpdateType));
+ }
+ 
+ void
+ nsDocument::EndUpdate(nsUpdateType aUpdateType)
+ {
+   NS_DOCUMENT_NOTIFY_OBSERVERS(EndUpdate, (this, aUpdateType));
++
++  --mUpdateNestLevel;
++  if (mUpdateNestLevel == 0) {
++    // This set of updates may have created XBL bindings.  Let the
++    // binding manager know we're done.
++    nsIBindingManager* bm = mBindingManager;
++    NS_STATIC_CAST(nsBindingManager*, bm)->EndOutermostUpdate();
++  }
++
+   if (mScriptLoader) {
+     NS_STATIC_CAST(nsScriptLoader*,
+                    NS_STATIC_CAST(nsIScriptLoader*,
+                                   mScriptLoader))->RemoveExecuteBlocker();
+   }
+ }
+ 
+ void
+Index: mozilla/content/base/src/nsDocument.h
+===================================================================
+--- mozilla.orig/content/base/src/nsDocument.h	2007-10-09 15:26:43.000000000 +0200
++++ mozilla/content/base/src/nsDocument.h	2007-10-09 15:26:47.000000000 +0200
+@@ -889,12 +889,15 @@
+ 
+   PRUint32 mOnloadBlockCount;
+   nsCOMPtr<nsIRequest> mOnloadBlocker;
+   
+   // A map from unvisited URI hashes to content elements
+   nsTHashtable<nsUint32ToContentHashEntry> mLinkMap;
+   // URIs whose visitedness has changed while we were hidden
+   nsCOMArray<nsIURI> mVisitednessChangedURIs;
++
++  // Our update nesting level
++  PRUint32 mUpdateNestLevel;
+ };
+ 
+ 
+ #endif /* nsDocument_h___ */
+Index: mozilla/content/html/document/src/nsHTMLContentSink.cpp
+===================================================================
+--- mozilla.orig/content/html/document/src/nsHTMLContentSink.cpp	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/content/html/document/src/nsHTMLContentSink.cpp	2007-10-09 15:28:09.000000000 +0200
+@@ -1632,16 +1632,19 @@
+  * they are visible in the tree. Specifically, make sure
+  * that they are all added to their respective parents.
+  * Also, do notification at the top for all content that
+  * has been newly added so that the frame tree is complete.
+  */
+ nsresult
+ SinkContext::FlushTags(PRBool aNotify)
+ {
++  // Not starting an update here, unlike trunk.  We'll get XBL
++  // constructors firing async of the stuff we flush right now.
++   
+   // Don't release last text node in case we need to add to it again
+   FlushText();
+ 
+   if (aNotify) {
+     // Start from the base of the stack (growing upward) and do
+     // a notification from the node that is closest to the root of
+     // tree for any content that has been added.
+     PRInt32 stackPos = 1;
+Index: mozilla/content/xbl/src/nsBindingManager.cpp
+===================================================================
+--- mozilla.orig/content/xbl/src/nsBindingManager.cpp	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/content/xbl/src/nsBindingManager.cpp	2007-10-09 15:28:06.000000000 +0200
+@@ -300,18 +300,21 @@
+ // Implementation /////////////////////////////////////////////////////////////////
+ 
+ // Static member variable initialization
+ 
+ // Implement our nsISupports methods
+ NS_IMPL_ISUPPORTS3(nsBindingManager, nsIBindingManager, nsIStyleRuleSupplier, nsIDocumentObserver)
+ 
+ // Constructors/Destructors
+-nsBindingManager::nsBindingManager(void)
+-: mProcessingAttachedStack(PR_FALSE)
++nsBindingManager::nsBindingManager(nsIDocument* aDocument)
++  : mProcessingAttachedStack(PR_FALSE),
++    mProcessOnEndUpdate(PR_FALSE),
++    mProcessAttachedQueueEvent(nsnull),
++    mDocument(aDocument)
+ {
+   mContentListTable.ops = nsnull;
+   mAnonymousNodesTable.ops = nsnull;
+   mInsertionParentTable.ops = nsnull;
+   mWrapperTable.ops = nsnull;
+ }
+ 
+ static PRBool PR_CALLBACK
+@@ -781,48 +784,81 @@
+ 
+ NS_IMETHODIMP
+ nsBindingManager::AddToAttachedQueue(nsXBLBinding* aBinding)
+ {
+   if (!mAttachedStack.AppendElement(aBinding))
+     return NS_ERROR_OUT_OF_MEMORY;
+ 
+   NS_ADDREF(aBinding);
++
++  // If we're in the middle of processing our queue already, don't
++  // bother posting the event.
++  if (!mProcessingAttachedStack && !mProcessAttachedQueueEvent) {
++    nsCOMPtr<nsIEventQueueService> eventQueueService =
++      do_GetService(NS_EVENTQUEUESERVICE_CONTRACTID);
++    nsCOMPtr<nsIEventQueue> eventQueue;
++    if (eventQueueService) {
++      eventQueueService->
++        GetSpecialEventQueue(nsIEventQueueService::UI_THREAD_EVENT_QUEUE,
++                             getter_AddRefs(eventQueue));
++    }
++    if (eventQueue) {
++      ProcessAttachedQueueEvent* ev = new ProcessAttachedQueueEvent(this);
++      if (ev && NS_FAILED(eventQueue->PostEvent(ev))) {
++        PL_DestroyEvent(ev);
++      } else {
++        mProcessAttachedQueueEvent = ev;
++      }
++    }
++  }
++  
+   return NS_OK;
+ }
+ 
+ NS_IMETHODIMP
+ nsBindingManager::ClearAttachedQueue()
+ {
+   mAttachedStack.EnumerateForwards(ReleaseBindings, nsnull);
+   mAttachedStack.Clear();
+   return NS_OK;
+ }
+ 
++void
++nsBindingManager::DoProcessAttachedQueue()
++{
++  ProcessAttachedQueue();
++
++  NS_ASSERTION(mAttachedStack.Count() == 0,
++               "Shouldn't have pending bindings!");
++  
++  mProcessAttachedQueueEvent = nsnull;
++}
++
+ NS_IMETHODIMP
+ nsBindingManager::ProcessAttachedQueue()
+ {
+-  if (mProcessingAttachedStack)
++  if (mProcessingAttachedStack || mAttachedStack.Count() == 0)
+     return NS_OK;
+ 
+   mProcessingAttachedStack = PR_TRUE;
+ 
+   PRInt32 lastItem;
+   while ((lastItem = mAttachedStack.Count() - 1) >= 0) {
+     nsXBLBinding *binding = NS_STATIC_CAST(nsXBLBinding*,
+                                            mAttachedStack.FastElementAt(lastItem));
+     mAttachedStack.RemoveElementAt(lastItem);
+ 
+     NS_ASSERTION(binding, "null item in attached stack?");
+     binding->ExecuteAttachedHandler();
+     NS_RELEASE(binding);
+   }
+ 
+   mProcessingAttachedStack = PR_FALSE;
+-  ClearAttachedQueue();
++  NS_ASSERTION(mAttachedStack.Count() == 0, "How did we get here?");
+   return NS_OK;
+ }
+ 
+ PR_STATIC_CALLBACK(PLDHashOperator)
+ AccumulateBindingsToDetach(nsISupports *aKey, nsXBLBinding *aBinding,
+                            void* aVoidArray)
+ {
+   nsVoidArray* arr = NS_STATIC_CAST(nsVoidArray*, aVoidArray);
+@@ -1304,8 +1340,62 @@
+         nsXBLInsertionPoint* point = contentList->GetInsertionPointAt(i);
+         if (point->GetInsertionIndex() != -1) {
+           point->RemoveChild(aChild);
+         }
+       }
+     }
+   }
+ }
++
++void
++nsBindingManager::DocumentWillBeDestroyed(nsIDocument* aDocument)
++{
++  // Make sure to not run any more XBL constructors
++  mProcessingAttachedStack = PR_TRUE;
++
++  mDocument = nsnull;
++}
++
++void
++nsBindingManager::BeginOutermostUpdate()
++{
++  mProcessOnEndUpdate = (mAttachedStack.Count() == 0);
++}
++
++void
++nsBindingManager::EndOutermostUpdate()
++{
++  if (mProcessOnEndUpdate) {
++    mProcessOnEndUpdate = PR_FALSE;
++    ProcessAttachedQueue();
++  }
++}
++
++static void PR_CALLBACK
++HandlePLEvent(nsBindingManager::ProcessAttachedQueueEvent* aEvent)
++{
++  aEvent->HandleEvent();
++}
++
++static void PR_CALLBACK
++DestroyPLEvent(nsBindingManager::ProcessAttachedQueueEvent* aEvent)
++{
++  delete aEvent;
++}
++
++nsBindingManager::ProcessAttachedQueueEvent::ProcessAttachedQueueEvent(nsBindingManager* aBindingManager)
++  : mBindingManager(aBindingManager)
++{
++  PL_InitEvent(this, aBindingManager,
++               (PLHandleEventProc) ::HandlePLEvent,
++               (PLDestroyEventProc) ::DestroyPLEvent);
++  if (aBindingManager->mDocument) {
++    aBindingManager->mDocument->BlockOnload();
++  }
++}
++
++nsBindingManager::ProcessAttachedQueueEvent::~ProcessAttachedQueueEvent()
++{
++  if (mBindingManager->mDocument) {
++    mBindingManager->mDocument->UnblockOnload();
++  }
++}
+Index: mozilla/content/xbl/src/nsBindingManager.h
+===================================================================
+--- mozilla.orig/content/xbl/src/nsBindingManager.h	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/content/xbl/src/nsBindingManager.h	2007-10-09 15:28:02.000000000 +0200
+@@ -42,16 +42,17 @@
+ 
+ #include "nsIBindingManager.h"
+ #include "nsIStyleRuleSupplier.h"
+ #include "nsStubDocumentObserver.h"
+ #include "pldhash.h"
+ #include "nsInterfaceHashtable.h"
+ #include "nsRefPtrHashtable.h"
+ #include "nsURIHashKey.h"
++#include "plevent.h"
+ 
+ class nsIContent;
+ class nsIXPConnectWrappedJS;
+ class nsIAtom;
+ class nsIDOMNodeList;
+ class nsVoidArray;
+ class nsIDocument;
+ class nsIURI;
+@@ -61,17 +62,17 @@
+ 
+ class nsBindingManager : public nsIBindingManager,
+                          public nsIStyleRuleSupplier,
+                          public nsStubDocumentObserver
+ {
+   NS_DECL_ISUPPORTS
+ 
+ public:
+-  nsBindingManager();
++  nsBindingManager(nsIDocument* aDocument);
+   ~nsBindingManager();
+ 
+   virtual nsXBLBinding* GetBinding(nsIContent* aContent);
+   NS_IMETHOD SetBinding(nsIContent* aContent, nsXBLBinding* aBinding);
+ 
+   NS_IMETHOD GetInsertionParent(nsIContent* aContent, nsIContent** aResult);
+   NS_IMETHOD SetInsertionParent(nsIContent* aContent, nsIContent* aResult);
+ 
+@@ -136,31 +137,55 @@
+   virtual void ContentInserted(nsIDocument* aDocument,
+                                nsIContent* aContainer,
+                                nsIContent* aChild,
+                                PRInt32 aIndexInContainer);
+   virtual void ContentRemoved(nsIDocument* aDocument,
+                               nsIContent* aContainer,
+                               nsIContent* aChild,
+                               PRInt32 aIndexInContainer);
++  virtual void DocumentWillBeDestroyed(nsIDocument* aDocument);
++
++  struct ProcessAttachedQueueEvent;
++  friend struct ProcessAttachedQueueEvent;
++
++  struct ProcessAttachedQueueEvent : public PLEvent {
++    ProcessAttachedQueueEvent(nsBindingManager* aBindingManager);
++    ~ProcessAttachedQueueEvent();
++
++    void HandleEvent() {
++      mBindingManager->DoProcessAttachedQueue();
++    }
++
++    nsRefPtr<nsBindingManager> mBindingManager;
++  };
++
++  // Notify the binding manager when an outermost update begins and
++  // ends.  The end method can execute script.
++  void BeginOutermostUpdate();
++  void EndOutermostUpdate();
+ 
+ protected:
+   nsresult GetXBLChildNodesInternal(nsIContent* aContent,
+                                     nsIDOMNodeList** aResult,
+                                     PRBool* aIsAnonymousContentList);
+   nsresult GetAnonymousNodesInternal(nsIContent* aContent,
+                                      nsIDOMNodeList** aResult,
+                                      PRBool* aIsAnonymousContentList);
+ 
+   nsIContent* GetEnclosingScope(nsIContent* aContent) {
+     return aContent->GetBindingParent();
+   }
+ 
+   nsresult GetNestedInsertionPoint(nsIContent* aParent, nsIContent* aChild, nsIContent** aResult);
+ 
++  // Same as ProcessAttachedQueue, but also nulls out
++  // mProcessAttachedQueueEvent
++  void DoProcessAttachedQueue();
++
+ // MEMBER VARIABLES
+ protected: 
+   // A mapping from nsIContent* to the nsXBLBinding* that is
+   // installed on that element.
+   nsRefPtrHashtable<nsISupportsHashKey,nsXBLBinding> mBindingTable;
+ 
+   // A mapping from nsIContent* to an nsIDOMNodeList*
+   // (nsAnonymousContentList*).  This list contains an accurate
+@@ -198,14 +223,21 @@
+ 
+   // A mapping from a URL (a string) to a nsIStreamListener. This
+   // table is the currently loading binding docs.  If they're in this
+   // table, they have not yet finished loading.
+   nsInterfaceHashtable<nsURIHashKey,nsIStreamListener> mLoadingDocTable;
+ 
+   // A queue of binding attached event handlers that are awaiting execution.
+   nsVoidArray mAttachedStack;
+-  PRBool mProcessingAttachedStack;
++  PRPackedBool mProcessingAttachedStack;
++  PRPackedBool mProcessOnEndUpdate;  
++
++  // Our posted event to process the attached queue, if any
++  ProcessAttachedQueueEvent* mProcessAttachedQueueEvent;
++
++  // Our document.  This is a weak ref; the document owns us
++  nsIDocument* mDocument;
+ };
+ 
+ PRBool PR_CALLBACK ReleaseInsertionPoint(void* aElement, void* aData);
+ 
+ #endif
+Index: mozilla/content/xbl/src/nsXBLResourceLoader.cpp
+===================================================================
+--- mozilla.orig/content/xbl/src/nsXBLResourceLoader.cpp	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/content/xbl/src/nsXBLResourceLoader.cpp	2007-10-09 15:27:56.000000000 +0200
+@@ -233,22 +233,16 @@
+       // We need the document to flush out frame construction and
+       // such, so we want to use the current document.
+       nsIDocument* doc = content->GetCurrentDoc();
+     
+       if (doc) {
+         // Flush first to make sure we can get the frame for content
+         doc->FlushPendingNotifications(Flush_Frames);
+ 
+-        // Notify
+-        nsIContent* parent = content->GetParent();
+-        PRInt32 index = 0;
+-        if (parent)
+-          index = parent->IndexOf(content);
+-        
+         // If |content| is (in addition to having binding |mBinding|)
+         // also a descendant of another element with binding |mBinding|,
+         // then we might have just constructed it due to the
+         // notification of its parent.  (We can know about both if the
+         // binding loads were triggered from the DOM rather than frame
+         // construction.)  So we have to check both whether the element
+         // has a primary frame and whether it's in the undisplayed map
+         // before sending a ContentInserted notification, or bad things
+@@ -258,18 +252,17 @@
+           nsIFrame* childFrame;
+           shell->GetPrimaryFrameFor(content, &childFrame);
+           if (!childFrame) {
+             // Check to see if it's in the undisplayed content map.
+             nsStyleContext* sc =
+               shell->FrameManager()->GetUndisplayedContent(content);
+ 
+             if (!sc) {
+-              nsCOMPtr<nsIDocumentObserver> obs(do_QueryInterface(shell));
+-              obs->ContentInserted(doc, parent, content, index);
++              shell->RecreateFramesFor(content);
+             }
+           }
+         }
+ 
+         // Flush again
+         // XXXbz why is this needed?
+         doc->FlushPendingNotifications(Flush_ContentAndNotify);
+       }
+Index: mozilla/content/xul/templates/src/nsXULContentBuilder.cpp
+===================================================================
+--- mozilla.orig/content/xul/templates/src/nsXULContentBuilder.cpp	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/content/xul/templates/src/nsXULContentBuilder.cpp	2007-10-09 15:28:12.000000000 +0200
+@@ -1768,16 +1768,18 @@
+     if (container && IsLazyWidgetItem(aElement)) {
+         // The tree widget is special, and has to be spanked every
+         // time we add content to a container.
+         nsCOMPtr<nsIDocument> doc = mRoot->GetDocument();
+         NS_ASSERTION(doc, "root element has no document");
+         if (! doc)
+             return NS_ERROR_UNEXPECTED;
+ 
++        mozAutoDocUpdate upd(container->GetCurrentDoc(), UPDATE_CONTENT_MODEL,
++                             PR_TRUE);        
+         doc->ContentAppended(container, newIndex);
+     }
+ 
+     return NS_OK;
+ }
+ 
+ nsresult
+ nsXULContentBuilder::CloseContainer(nsIContent* aElement)
+@@ -1902,16 +1904,18 @@
+     CreateTemplateAndContainerContents(mRoot, getter_AddRefs(container), &newIndex);
+ 
+     if (container) {
+         nsCOMPtr<nsIDocument> doc = mRoot->GetDocument();
+         NS_ASSERTION(doc, "root element has no document");
+         if (! doc)
+             return NS_ERROR_UNEXPECTED;
+ 
++        mozAutoDocUpdate upd(container->GetCurrentDoc(), UPDATE_CONTENT_MODEL,
++                             PR_TRUE);
+         doc->ContentAppended(container, newIndex);
+     }
+ 
+     return NS_OK;
+ }
+ 
+ nsresult
+ nsXULContentBuilder::CompileCondition(nsIAtom* aTag,
+Index: mozilla/layout/base/nsCSSFrameConstructor.cpp
+===================================================================
+--- mozilla.orig/layout/base/nsCSSFrameConstructor.cpp	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/layout/base/nsCSSFrameConstructor.cpp	2007-10-09 15:27:43.000000000 +0200
+@@ -8914,19 +8914,16 @@
+     // Don't create child frames for iframes/frames, they should not
+     // display any content that they contain.
+     else if (nsLayoutAtoms::subDocumentFrame != frameType) {
+       // Construct a child frame (that does not have a table as parent)
+       ConstructFrame(state, childContent, parentFrame, frameItems);
+     }
+   }
+ 
+-  // We built some new frames.  Initialize any newly-constructed bindings.
+-  mDocument->BindingManager()->ProcessAttachedQueue();
+-
+   // process the current pseudo frame state
+   if (!state.mPseudoFrames.IsEmpty()) {
+     ProcessPseudoFrames(state, frameItems);
+   }
+ 
+   if (haveFirstLineStyle) {
+     // It's possible that some of the new frames go into a
+     // first-line frame. Look at them and see...
+@@ -9348,18 +9345,16 @@
+         if (fdbg) {
+           printf("nsCSSFrameConstructor::ContentInserted: resulting frame model:\n");
+           fdbg->List(state.mPresContext, stdout, 0);
+         }
+       }
+ #endif
+     }
+ 
+-    mDocument->BindingManager()->ProcessAttachedQueue();
+-
+     // otherwise this is not a child of the root element, and we
+     // won't let it have a frame.
+     return NS_OK;
+   }
+ 
+   // Otherwise, we've got parent content. Find its frame.
+   nsIFrame* parentFrame = aContainerFrame;
+   if (!parentFrame) {
+@@ -9574,20 +9569,16 @@
+     if (nsLayoutAtoms::tableCaptionFrame == frameItems.childList->GetType()) {
+       NS_ASSERTION(frameItems.childList == frameItems.lastChild ,
+                    "adding a non caption frame to the caption childlist?");
+       captionItems.AddChild(frameItems.childList);
+       frameItems = nsFrameItems();
+     }
+   }
+ 
+-  // Now that we've created frames, run the attach queue.
+-  //XXXwaterson should we do this after we've processed pseudos, too?
+-  mDocument->BindingManager()->ProcessAttachedQueue();
+-
+   // process the current pseudo frame state
+   if (!state.mPseudoFrames.IsEmpty())
+     ProcessPseudoFrames(state, frameItems);
+ 
+   // If the final parent frame (decided by AdjustParentFrame()) is different
+   // from the parent of the insertion point we calculated above then
+   // parentFrame/prevSibling/appendAfterFrame are now invalid and  as it is
+   // unknown where to insert correctly we append instead (bug 341858).
+@@ -13209,18 +13200,16 @@
+     if (!state.mPseudoFrames.IsEmpty()) {
+       ProcessPseudoFrames(state, frameItems); 
+     }
+     
+     nsIFrame* newFrame = frameItems.childList;
+     *aNewFrame = newFrame;
+ 
+     if (NS_SUCCEEDED(rv) && (nsnull != newFrame)) {
+-      mDocument->BindingManager()->ProcessAttachedQueue();
+-
+       // Notify the parent frame
+       if (aIsAppend)
+         rv = ((nsListBoxBodyFrame*)aParentFrame)->ListBoxAppendFrames(newFrame);
+       else
+         rv = ((nsListBoxBodyFrame*)aParentFrame)->ListBoxInsertFrames(aPrevFrame, newFrame);
+     }
+   }
+ 
+@@ -14227,21 +14216,21 @@
+          restylesToProcess;
+        currentRestyle != lastRestyle;
+        ++currentRestyle) {
+     ProcessOneRestyle(currentRestyle->mContent,
+                       currentRestyle->mRestyleHint,
+                       currentRestyle->mChangeHint);
+   }
+ 
++  delete [] restylesToProcess;
++
+   EndUpdate();
+ 
+   viewManager->EndUpdateViewBatch(NS_VMREFRESH_NO_SYNC);
+-
+-  delete [] restylesToProcess;
+ }
+ 
+ void
+ nsCSSFrameConstructor::PostRestyleEvent(nsIContent* aContent,
+                                         nsReStyleHint aRestyleHint,
+                                         nsChangeHint aMinChangeHint)
+ {
+   if (aRestyleHint == 0 && !aMinChangeHint) {
+@@ -14276,32 +14265,33 @@
+       mRestyleEventQueue = eventQueue;
+     }
+   }
+ }
+ 
+ void nsCSSFrameConstructor::RestyleEvent::HandleEvent() {
+   nsCSSFrameConstructor* constructor =
+     NS_STATIC_CAST(nsCSSFrameConstructor*, owner);
+-  nsIViewManager* viewManager =
++  nsCOMPtr<nsIViewManager> viewManager =
+     constructor->mDocument->GetShellAt(0)->GetPresContext()->GetViewManager();
+   NS_ASSERTION(viewManager, "Must have view manager for update");
+ 
+   viewManager->BeginUpdateViewBatch();
+   // Force flushing of any pending content notifications that might have queued
+   // up while our event was pending.  That will ensure that we don't construct
+   // frames for content right now that's still waiting to be notified on,
+   constructor->mPresShell->GetDocument()->
+     FlushPendingNotifications(Flush_ContentAndNotify);
+ 
+   // Make sure that any restyles that happen from now on will go into
+   // a new event.
+   constructor->mRestyleEventQueue = nsnull;
+ 
+   constructor->ProcessPendingRestyles();
++  constructor->mDocument->BindingManager()->ProcessAttachedQueue();
+   viewManager->EndUpdateViewBatch(NS_VMREFRESH_NO_SYNC);
+ }
+ 
+ PR_STATIC_CALLBACK(void*)
+ HandleRestyleEvent(PLEvent* aEvent)
+ {
+   nsCSSFrameConstructor::RestyleEvent* evt =
+     NS_STATIC_CAST(nsCSSFrameConstructor::RestyleEvent*, aEvent);
+Index: mozilla/layout/base/nsCSSFrameConstructor.h
+===================================================================
+--- mozilla.orig/layout/base/nsCSSFrameConstructor.h	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/layout/base/nsCSSFrameConstructor.h	2007-10-09 15:27:18.000000000 +0200
+@@ -133,21 +133,34 @@
+   void BeginUpdate() { ++mUpdateCount; }
+   void EndUpdate();
+   void RecalcQuotesAndCounters();
+ 
+   void WillDestroyFrameTree();
+ 
+   // Note: It's the caller's responsibility to make sure to wrap a
+   // ProcessRestyledFrames call in a view update batch.
++  // This function does not call ProcessAttachedQueue() on the binding manager.
++  // If the caller wants that to happen synchronously, it needs to handle that
++  // itself.
+   nsresult ProcessRestyledFrames(nsStyleChangeList& aRestyleArray);
+ 
++private:
++  // This function does not call ProcessAttachedQueue() on the binding manager.
++  // If the caller wants that to happen synchronously, it needs to handle that
++  // itself.
+   void ProcessOneRestyle(nsIContent* aContent, nsReStyleHint aRestyleHint,
+                          nsChangeHint aChangeHint);
++
++public:
++  // This function does not call ProcessAttachedQueue() on the binding manager.
++  // If the caller wants that to happen synchronously, it needs to handle that
++  // itself.
+   void ProcessPendingRestyles();
++
+   void PostRestyleEvent(nsIContent* aContent, nsReStyleHint aRestyleHint,
+                         nsChangeHint aMinChangeHint);
+ 
+   // Notification that we were unable to render a replaced element.
+   nsresult CantRenderReplacedElement(nsIFrame* aFrame);
+ 
+   // Request to create a continuing frame
+   nsresult CreateContinuingFrame(nsPresContext* aPresContext,
+Index: mozilla/layout/base/nsPresShell.cpp
+===================================================================
+--- mozilla.orig/layout/base/nsPresShell.cpp	2007-10-09 15:26:44.000000000 +0200
++++ mozilla/layout/base/nsPresShell.cpp	2007-10-09 15:27:51.000000000 +0200
+@@ -2980,16 +2980,19 @@
+       ti->SetIdle(PR_FALSE);
+ 
+       mPaintSuppressionTimer->InitWithFuncCallback(sPaintSuppressionCallback,
+                                                    this, delay, 
+                                                    nsITimer::TYPE_ONE_SHOT);
+     }
+   }
+ 
++  // Run the XBL binding constructors for any new frames we've constructed
++  mDocument->BindingManager()->ProcessAttachedQueue();
++
+   return NS_OK; //XXX this needs to be real. MMP
+ }
+ 
+ void
+ PresShell::sPaintSuppressionCallback(nsITimer *aTimer, void* aPresShell)
+ {
+   PresShell* self = NS_STATIC_CAST(PresShell*, aPresShell);
+   if (self)
+@@ -5382,17 +5385,34 @@
+   NS_ASSERTION(!isSafeToFlush || mViewManager, "Must have view manager");
+   if (isSafeToFlush && mViewManager) {
+     // Style reresolves not in conjunction with reflows can't cause
+     // painting or geometry changes, so don't bother with view update
+     // batching if we only have style reresolve
+     mViewManager->BeginUpdateViewBatch();
+ 
+     if (aType & Flush_StyleReresolves) {
++      // Processing pending restyles can kill us, and some callers only
++      // hold weak refs when calling FlushPendingNotifications().  :(
++      nsCOMPtr<nsIPresShell> kungFuDeathGrip(this);
+       mFrameConstructor->ProcessPendingRestyles();
++      if (mIsDestroying) {
++        // We no longer have a view manager and all that.
++        // XXX FIXME: Except we're in the middle of a view update batch...  We
++        // need to address that somehow.  See bug 369165.
++        return NS_OK;
++      }
++
++      mDocument->BindingManager()->ProcessAttachedQueue();
++      if (mIsDestroying) {
++        // We no longer have a view manager and all that.
++        // XXX FIXME: Except we're in the middle of a view update batch...  We
++        // need to address that somehow.  See bug 369165.
++        return NS_OK;
++      }
+     }
+ 
+     if (aType & Flush_OnlyReflow) {
+       mFrameConstructor->RecalcQuotesAndCounters();
+       ProcessReflowCommands(PR_FALSE);
+     }
+ 
+     PRUint32 updateFlags = NS_VMREFRESH_NO_SYNC;

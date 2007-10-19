@@ -429,18 +429,20 @@
  class nsFontEnumeratorPango : public nsIFontEnumerator
 --- mozilla/gfx/src/gtk/mozilla-decoder.cpp.pango-printing	2006-12-01 16:23:10.000000000 -0500
 +++ mozilla/gfx/src/gtk/mozilla-decoder.cpp	2006-12-01 16:31:12.000000000 -0500
-@@ -36,14 +36,11 @@
+@@ -36,16 +36,13 @@
   *
   * ***** END LICENSE BLOCK ***** */
  
 -#define PANGO_ENABLE_BACKEND
 -#define PANGO_ENABLE_ENGINE
 -
+-#include <gdk/gdkpango.h>
 -#include "mozilla-decoder.h"
+ #include <pango/pangoxft.h>
 +#include <pango/pangofc-decoder.h>
  #include <pango/pangofc-fontmap.h>
  #include <pango/pangofc-font.h>
--#include <gdk/gdkpango.h>
+ #include <gdk/gdkx.h>
  
 +#include "mozilla-decoder.h"
  #include "nsString.h"

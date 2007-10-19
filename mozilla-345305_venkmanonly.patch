@@ -1,0 +1,438 @@
+---
+ extensions/venkman/resources/content/venkman-records.js |  151 +++++++++++++---
+ extensions/venkman/resources/content/venkman-utils.js   |    2 
+ extensions/venkman/resources/content/venkman-views.js   |   40 +---
+ 3 files changed, 142 insertions(+), 51 deletions(-)
+
+Index: mozilla/extensions/venkman/resources/content/venkman-records.js
+===================================================================
+--- mozilla.orig/extensions/venkman/resources/content/venkman-records.js	2007-10-09 16:36:04.000000000 +0200
++++ mozilla/extensions/venkman/resources/content/venkman-records.js	2007-10-09 16:36:36.000000000 +0200
+@@ -560,30 +560,31 @@
+         ValueRecord.prototype.showConstants = e.toggle;
+         console.prefs["valueRecord.showConstants"] = e.toggle;
+     }
+ 
+     if ("isInteractive" in e && e.isInteractive)
+         dispatch("pref valueRecord.showConstants", { isInteractive: true });
+ }
+ 
+-function ValueRecord (value, name, flags)
++function ValueRecord (value, name, flags, jsdFrame)
+ {
+     if (!(value instanceof jsdIValue))
+         throw new BadMojo (ERR_INVALID_PARAM, "value", String(value));
+ 
+     this.setColumnPropertyName ("col-0", "displayName");
+     this.setColumnPropertyName ("col-1", "displayType");
+     this.setColumnPropertyName ("col-2", "displayValue");
+     this.setColumnPropertyName ("col-3", "displayFlags");    
+     this.displayName = name;
+     this.displayFlags = formatFlags(flags);
+     this.name = name;
+     this.flags = flags;
+     this.value = value;
++    this.jsdFrame = jsdFrame;
+     this.jsType = null;
+     this.onPreRefresh = false;
+     this.refresh();
+     delete this.onPreRefresh;
+ }
+ 
+ ValueRecord.prototype = new XULTreeViewRecord (null);
+ 
+@@ -595,16 +596,59 @@
+      
+     if ("parentRecord" in this)
+         return this.__share = this.parentRecord._share;
+  
+     ASSERT (0, "ValueRecord cannot be the root of a visible tree.");
+     return null;
+ }
+ 
++ValueRecord.prototype.__defineGetter__("expression", vr_getexpressionl);
++function vr_getexpressionl()
++{
++    return this.getExpression();
++}
++
++ValueRecord.prototype.getExpression =
++function vr_getexpression(extra)
++{
++    var items = [this.displayName];
++
++    if ("value" in this.parentRecord)
++    {
++        var cur = this.parentRecord;
++        while (cur != console.views["locals"].childData &&
++               cur != console.views["locals"].scopeRecord)
++        {
++            if ("isECMAProto" in cur)
++                items.unshift("__proto__");
++            else if ("isECMAParent" in cur)
++                items.unshift("__parent__");
++            else
++                items.unshift(cur.displayName);
++            cur = cur.parentRecord;
++        }
++    }
++
++    if (typeof extra == "string")
++        items.push(extra);
++
++    return makeExpression(items);
++}
++
++ValueRecord.prototype.evalString =
++function vr_evalstring(string)
++{
++    //dd("ValueRecord(" + this.displayName + ").evalString(" + string + ")");
++    var rval = new Object();
++    if (this.jsdFrame.eval(string, JSD_URL_SCHEME + "value-record", 1, rval))
++        return rval.value;
++    return undefined;
++}
++
+ ValueRecord.prototype.showFunctions = false;
+ ValueRecord.prototype.showECMAProps = false;
+ ValueRecord.prototype.showConstants = false;
+ 
+ ValueRecord.prototype.getProperties =
+ function vr_getprops (properties)
+ {
+     if ("valueIsException" in this || this.flags & PROP_EXCEPTION)
+@@ -645,18 +689,20 @@
+         var prop = value.getProperty (this.name);
+         if (prop)
+         {
+             this.flags = prop.flags;
+             this.value = prop.value;
+         }
+         else
+         {
+-            var jsval = value.getWrappedValue();
+-            this.value = console.jsds.wrapValue(jsval[this.name]);
++            ASSERT(this.jsdFrame, "ValueRecord(" + this.displayName +
++                   ").onPreRefresh: no jsdIStackFrame to safely eval on!");
++
++            this.value = this.evalString(this.expression);
+             this.flags = PROP_ENUMERATE | PROP_HINTED;
+         }
+     }
+ }
+     
+ ValueRecord.prototype.refresh =
+ function vr_refresh ()
+ {
+@@ -817,51 +863,107 @@
+         default:
+             ASSERT (0, "invalid value");
+     }
+ }
+ 
+ ValueRecord.prototype.countProperties =
+ function vr_countprops ()
+ {
+-    var c = 0;
+-    var jsval = this.value.getWrappedValue();
+-    try
+-    {
+-        for (var p in jsval)
+-            ++c;
+-    }
+-    catch (ex)
+-    {
+-        dd ("caught exception counting properties\n" + ex);
+-    }
+-    
+-    return c;
++    ASSERT(this.jsdFrame, "ValueRecord(" + this.displayName +
++           ").countProperties: no jsdIStackFrame to safely eval on!");
++
++    // Note: uses an inline function to avoid polluting the frame's scope.
++    var code = "(function(obj){" +
++               "    var count = 0;" +
++               "    for (var prop in obj)" +
++               "        ++count;" +
++               "    return count;" +
++               "})(" + this.expression + ")";
++
++    // rv is undefined if an exception occured.
++    var rv = this.evalString(code);
++    if (typeof rv == "undefined")
++        return 0;
++
++    return rv.intValue;
+ }
+ 
+ ValueRecord.prototype.listProperties =
+ function vr_listprops ()
+ {
++    function charEscapeReplace(s, c)
++    {
++        return String.fromCharCode(parseInt(c, 16));
++    };
++
+     // the ":" prefix for keys in the propMap avoid collisions with "real"
+     // pseudo-properties, such as __proto__.  If we were to actually assign
+     // to those we would introduce bad side affects.
+ 
+     //dd ("listProperties {");
+-    var i;
+-    var jsval = this.value.getWrappedValue();
++    var i, jsval;
+     var propMap = new Object();
+ 
+     /* get the enumerable properties */
+-    
+-    for (var p in jsval)
++
++    ASSERT(this.jsdFrame, "ValueRecord(" + this.displayName +
++           ").listProperties: no jsdIStackFrame to safely eval on!");
++
++    var propList = new Array();
++
++    // quote() puts double-quotes at either end of the string,
++    // backspash-escapes double-quotes in the string, and (quite
++    // importantly) uses \xXX and \uXXXX escapes for non-ASCII
++    // characters.
++
++    // Note: uses an inline function to avoid polluting the frame's scope.
++    var code = "(function(obj){" +
++               "    var string = '';" +
++               "    for (var prop in obj) {" +
++               "        if (string)" +
++               "            string += ',';" +
++               "        string += prop.quote();" +
++               "    }" +
++               "    return string;" +
++               "})(" + this.expression + ")";
++
++    // list is undefined if an exception occured.
++    var list = this.evalString(code);
++    if (typeof list != "undefined") {
++        list = list.stringValue;
++        //dd("ValueRecord(" + this.displayName +
++        //   ").listProperties: list: " + list);
++        if (list) {
++            list = ('",' + list + ',"').split('","');
++
++            for (i = 0; i < list.length; i++)
++            {
++                if (!list[i])
++                    continue;
++
++                var prop = list[i];
++                prop = prop.replace(/\\x([0-9a-f]{2})/i, charEscapeReplace);
++                prop = prop.replace(/\\u([0-9a-f]{4})/i, charEscapeReplace);
++                prop = prop.replace(/\\(.)/, "$1");
++                propList.push(prop);
++                //dd("ValueRecord(" + this.displayName +
++                //   ").listProperties: prop: " + prop);
++            }
++        }
++    }
++
++    for (i = 0; i < propList.length; i++)
+     {
++        var p = propList[i];
+         var value;
+         try
+         {
+-            value = console.jsds.wrapValue(jsval[p]);
++            value = this.evalString(this.getExpression(p));
++
+             if (this.showFunctions || value.jsType != TYPE_FUNCTION)
+             {
+                 propMap[":" + p] = { name: p, value: value,
+                                      flags: PROP_ENUMERATE | PROP_HINTED };
+             }
+             else
+             {
+                 //dd ("not including function " + name);
+@@ -987,25 +1089,25 @@
+         this.propertyList = this.listProperties();
+         
+         if (this.showECMAProps)
+         {
+             var rec;
+             if (this.value.jsPrototype)
+             {
+                 rec = new ValueRecord(this.value.jsPrototype,
+-                                      MSG_VAL_PROTO);
++                                      MSG_VAL_PROTO, "", this.jsdFrame);
+                 rec.isECMAProto = true;
+                 this.appendChild (rec);
+             }
+             
+             if (this.value.jsParent)
+             {
+                 rec = new ValueRecord(this.value.jsParent,
+-                                      MSG_VAL_PARENT);
++                                      MSG_VAL_PARENT, "", this.jsdFrame);
+                 rec.isECMAParent = true;
+                 this.appendChild (rec);
+             }
+         }
+         
+         if (!this.childData.length && !this.propertyList.length)
+         {
+             rec = new XTLabelRecord ("col-0", MSG_VAL_NONE,
+@@ -1014,17 +1116,18 @@
+             return;
+         }
+         
+         for (var i = 0; i < this.propertyList.length; ++i)
+         {
+             var prop = this.propertyList[i];
+             this.appendChild(new ValueRecord(prop.value,
+                                              prop.name,
+-                                             prop.flags));
++                                             prop.flags,
++                                             this.jsdFrame));
+         }
+     }
+     catch (ex)
+     {
+         display (getMsg (MSN_ERR_FAILURE, ex), MT_ERROR);
+     }
+ }
+ 
+Index: mozilla/extensions/venkman/resources/content/venkman-utils.js
+===================================================================
+--- mozilla.orig/extensions/venkman/resources/content/venkman-utils.js	2007-10-09 16:36:04.000000000 +0200
++++ mozilla/extensions/venkman/resources/content/venkman-utils.js	2007-10-09 16:36:39.000000000 +0200
+@@ -1004,17 +1004,17 @@
+ function makeExpression (items)
+ {
+     function escapeItem (item, first)
+     {
+         // Numbers.
+         if (item.match(/^[0-9]+$/i))
+             return "[" + item + "]";
+         // Words/other items that don't need quoting.
+-        if (item.match(/^[a-z_][a-z0-9_]+$/i))
++        if (item.match(/^[a-z_][a-z0-9_]*$/i))
+             return (!first ? "." : "") + item;
+         // Quote everything else.
+         return "[" + item.quote() + "]";
+     };
+     
+     var expression = escapeItem(items[0], true);
+     
+     for (var i = 1; i < items.length; i++)
+Index: mozilla/extensions/venkman/resources/content/venkman-views.js
+===================================================================
+--- mozilla.orig/extensions/venkman/resources/content/venkman-views.js	2007-10-09 16:36:04.000000000 +0200
++++ mozilla/extensions/venkman/resources/content/venkman-views.js	2007-10-09 16:36:29.000000000 +0200
+@@ -607,17 +607,18 @@
+     {
+         var tag = jsdFrame.script.tag;
+         if (tag in this.savedStates)
+             state = this.savedStates[tag];
+     }
+     
+     if (jsdFrame.scope)
+     {
+-        this.scopeRecord = new ValueRecord (jsdFrame.scope, MSG_VAL_SCOPE, "");
++        this.scopeRecord = new ValueRecord(jsdFrame.scope, MSG_VAL_SCOPE, "",
++                                           jsdFrame);
+         this.scopeRecord.onPreRefresh = null;
+         this.childData.appendChild(this.scopeRecord);
+         if (!state && jsdFrame.scope.propertyCount <
+             console.prefs["localsView.autoOpenMax"])
+         {
+             this.scopeRecord.open();
+         }
+         
+@@ -629,17 +630,17 @@
+                                                "locals:col-3"]);
+         this.scopeRecord.property = ValueRecord.prototype.atomObject;
+         this.childData.appendChild(this.scopeRecord);
+     }
+     
+     if (jsdFrame.thisValue)
+     {
+         this.thisRecord = new ValueRecord (jsdFrame.thisValue, MSG_VAL_THIS,
+-                                           "");
++                                           "", jsdFrame);
+         this.thisRecord.onPreRefresh = null;
+         this.childData.appendChild(this.thisRecord);
+         if (!state && jsdFrame.thisValue.propertyCount < 
+             console.prefs["localsView.autoOpenMax"])
+         {
+             this.scopeRecord.open();
+         }
+     }    
+@@ -794,40 +795,17 @@
+     
+     cx.jsdValueList = new Array();
+     
+     function recordContextGetter (cx, rec, i)
+     {
+         if (i == 0)
+         {
+             cx.jsdValue = rec.value;
+-            var items = new Array();
+-            items.unshift(rec.displayName);
+-            
+-            if ("value" in rec.parentRecord)
+-            {
+-                cx.parentValue = rec.parentRecord.value;
+-                var cur = rec.parentRecord;
+-                while (cur != locals.childData &&
+-                       cur != locals.scopeRecord)
+-                {
+-                    if ("isECMAProto" in cur)
+-                        items.unshift("__proto__");
+-                    else if ("isECMAParent" in cur)
+-                        items.unshift("__parent__");
+-                    else
+-                        items.unshift(cur.displayName);
+-                    cur = cur.parentRecord;
+-                }
+-            }
+-            else
+-            {
+-                cx.parentValue = null;
+-            }
+-            cx.expression = makeExpression(items);
++            cx.expression = rec.expression;
+             cx.propertyName = rec.displayName;
+         }
+         else
+         {
+             cx.jsdValueList.push(rec.value);
+         }
+         return cx;
+     };
+@@ -4299,19 +4277,29 @@
+         if (!("currentEvalObject" in console))
+         {
+             display (MSG_ERR_NO_EVAL_OBJECT, MT_ERROR);
+             return null;
+         }
+ 
+         refresher = function () {
+                         if ("frames" in console)
++                        {
++                            this.jsdFrame = getCurrentFrame();
+                             this.value = evalInTargetScope(e.expression, true);
++                        }
+                         else
++                        {
++                            /* This is a security protection; leaving the
++                             * object open allows access to child items when
++                             * we have no frame to safely eval them on.
++                             */
++                            this.close();
+                             throw MSG_VAL_NA;
++                        }
+                     };
+     }
+     else
+     {
+         refresher = function () {
+                         var rv = evalInDebuggerScope(e.expression, true);
+                         this.value = console.jsds.wrapValue(rv);
+                     };

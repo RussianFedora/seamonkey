@@ -1,0 +1,225 @@
+---
+ layout/xul/base/src/nsTextBoxFrame.cpp |   86 +++++++++++++++++++++++++--------
+ layout/xul/base/src/nsTextBoxFrame.h   |    7 ++
+ 2 files changed, 73 insertions(+), 20 deletions(-)
+
+Index: mozilla/layout/xul/base/src/nsTextBoxFrame.cpp
+===================================================================
+--- mozilla.orig/layout/xul/base/src/nsTextBoxFrame.cpp	2007-10-09 18:48:08.000000000 +0200
++++ mozilla/layout/xul/base/src/nsTextBoxFrame.cpp	2007-10-09 18:49:59.000000000 +0200
+@@ -63,16 +63,17 @@
+ #include "nsIDocument.h"
+ #include "nsIDOMDocument.h"
+ #include "nsIDOMElement.h"
+ #include "nsIDOMXULLabelElement.h"
+ #include "nsIEventStateManager.h"
+ #include "nsITheme.h"
+ #include "nsUnicharUtils.h"
+ #include "nsContentUtils.h"
++#include "nsIReflowCallback.h"
+ 
+ #ifdef IBMBIDI
+ #include "nsBidiUtils.h"
+ #include "nsBidiPresUtils.h"
+ #endif // IBMBIDI
+ #include "nsReadableUtils.h"
+ 
+ #define ELLIPSIS "..."
+@@ -145,17 +146,19 @@
+     // If the accesskey changed, register for the new value
+     // The old value has been unregistered in nsXULElement::SetAttr
+     if (aAttribute == nsXULAtoms::accesskey || aAttribute == nsXULAtoms::control)
+         RegUnregAccessKey(presContext, PR_TRUE);
+ 
+     return NS_OK;
+ }
+ 
+-nsTextBoxFrame::nsTextBoxFrame(nsIPresShell* aShell):nsLeafBoxFrame(aShell), mCropType(CropRight),mAccessKeyInfo(nsnull)
++nsTextBoxFrame::nsTextBoxFrame(nsIPresShell* aShell)
++  : nsLeafBoxFrame(aShell), mCropType(CropRight), mAccessKeyInfo(nsnull), 
++    mNeedsReflowCallback(PR_FALSE)
+ {
+     mState |= NS_STATE_NEED_LAYOUT;
+     NeedsRecalc();
+ }
+ 
+ nsTextBoxFrame::~nsTextBoxFrame()
+ {
+     delete mAccessKeyInfo;
+@@ -216,16 +219,68 @@
+ 
+     const char* prefName = "intl.menuitems.insertseparatorbeforeaccesskeys";
+     nsAdoptingString val = nsContentUtils::GetLocalizedStringPref(prefName);
+     gInsertSeparatorBeforeAccessKey = val.EqualsLiteral("true");
+   }
+   return gInsertSeparatorBeforeAccessKey;
+ }
+ 
++class nsAsyncAccesskeyUpdate : public nsIReflowCallback
++{
++public:
++    nsAsyncAccesskeyUpdate(nsIFrame* aFrame) : mWeakFrame(aFrame)
++    {
++    }
++
++    NS_DECL_ISUPPORTS
++
++    NS_IMETHOD ReflowFinished(nsIPresShell* aShell, PRBool* aFlushFlag)
++    {
++        nsTextBoxFrame* frame =
++            NS_STATIC_CAST(nsTextBoxFrame*, mWeakFrame.GetFrame());
++        if (frame && frame->UpdateAccesskey(mWeakFrame)) {
++            *aFlushFlag = PR_TRUE;
++        }
++        return NS_OK;
++    }
++
++    nsWeakFrame mWeakFrame;
++};
++
++NS_IMPL_ISUPPORTS1(nsAsyncAccesskeyUpdate, nsIReflowCallback)
++
++PRBool
++nsTextBoxFrame::UpdateAccesskey(nsWeakFrame& aWeakThis)
++{
++    nsAutoString accesskey;
++    nsCOMPtr<nsIDOMXULLabelElement> labelElement = do_QueryInterface(mContent);
++    if (labelElement) {
++        // Accesskey may be stored on control.
++        nsCxPusher cx(mContent);
++        labelElement->GetAccessKey(accesskey);
++        NS_ENSURE_TRUE(aWeakThis.IsAlive(), PR_FALSE);
++    }
++    else {
++        mContent->GetAttr(kNameSpaceID_None, nsXULAtoms::accesskey, accesskey);
++    }
++
++    if (!accesskey.Equals(mAccessKey)) {
++        // Need to get clean mTitle.
++        mContent->GetAttr(kNameSpaceID_None, nsHTMLAtoms::value, mTitle);
++        mAccessKey = accesskey;
++        UpdateAccessTitle();
++        nsPresContext* presContext = GetPresContext();
++        nsBoxLayoutState state(presContext);
++        MarkDirty(state);
++        return PR_TRUE;
++    }
++    return PR_FALSE;
++}
++
+ void
+ nsTextBoxFrame::UpdateAttributes(nsPresContext*  aPresContext,
+                                  nsIAtom*         aAttribute,
+                                  PRBool&          aResize,
+                                  PRBool&          aRedraw)
+ {
+     PRBool doUpdateTitle = PR_FALSE;
+     aResize = PR_FALSE;
+@@ -258,34 +313,19 @@
+         mContent->GetAttr(kNameSpaceID_None, nsHTMLAtoms::value, value);
+         if (!value.Equals(mTitle)) {
+             mTitle = value;
+             doUpdateTitle = PR_TRUE;
+         }
+     }
+ 
+     if (aAttribute == nsnull || aAttribute == nsXULAtoms::accesskey) {
+-        nsAutoString accesskey;
+-        nsCOMPtr<nsIDOMXULLabelElement> labelElement = do_QueryInterface(mContent);
+-        if (labelElement) {
+-          labelElement->GetAccessKey(accesskey);  // Accesskey may be stored on control
+-        }
+-        else {
+-          mContent->GetAttr(kNameSpaceID_None, nsXULAtoms::accesskey, accesskey);
+-        }
+-        if (!accesskey.Equals(mAccessKey)) {
+-            if (!doUpdateTitle) {
+-                // Need to get clean mTitle and didn't already
+-                nsAutoString value;
+-                mContent->GetAttr(kNameSpaceID_None, nsHTMLAtoms::value, value);
+-                mTitle = value;
+-                doUpdateTitle = PR_TRUE;
+-            }
+-            mAccessKey = accesskey;
+-        }
++        mNeedsReflowCallback = PR_TRUE;
++        // Ensure that layout is refreshed and reflow callback called.
++        aResize = PR_TRUE;
+     }
+ 
+     if (doUpdateTitle) {
+         UpdateAccessTitle();
+         aResize = PR_TRUE;
+     }
+ 
+ }
+@@ -795,16 +835,24 @@
+                 mAccessKeyInfo->mAccesskeyIndex = kNotFound;
+         }
+     }
+ }
+ 
+ NS_IMETHODIMP
+ nsTextBoxFrame::DoLayout(nsBoxLayoutState& aBoxLayoutState)
+ {
++    if (mNeedsReflowCallback) {
++        nsCOMPtr<nsIReflowCallback> cb = new nsAsyncAccesskeyUpdate(this);
++        if (cb) {
++            GetPresContext()->PresShell()->PostReflowCallback(cb);
++        }
++        mNeedsReflowCallback = PR_FALSE;
++    }
++
+     mState |= NS_STATE_NEED_LAYOUT;
+ 
+     return nsLeafBoxFrame::DoLayout(aBoxLayoutState);
+ }
+ 
+ NS_IMETHODIMP
+ nsTextBoxFrame::NeedsRecalc()
+ {
+Index: mozilla/layout/xul/base/src/nsTextBoxFrame.h
+===================================================================
+--- mozilla.orig/layout/xul/base/src/nsTextBoxFrame.h	2007-10-09 18:48:08.000000000 +0200
++++ mozilla/layout/xul/base/src/nsTextBoxFrame.h	2007-10-09 18:50:03.000000000 +0200
+@@ -85,16 +85,20 @@
+                    nsIRenderingContext& aRenderingContext,
+                    const nsRect&        aDirtyRect,
+                    nsFramePaintLayer    aWhichLayer,
+                    PRUint32             aFlags = 0);
+ 
+ 
+   virtual ~nsTextBoxFrame();
+ protected:
++  friend class nsAsyncAccesskeyUpdate;
++  // Should be called only by nsAsyncAccesskeyUpdate.
++  // Returns PR_TRUE if accesskey was updated.
++  PRBool UpdateAccesskey(nsWeakFrame& aWeakThis);
+ 
+   void UpdateAccessTitle();
+   void UpdateAccessIndex();
+ 
+   NS_IMETHOD PaintTitle(nsPresContext*      aPresContext,
+                         nsIRenderingContext& aRenderingContext,
+                         const nsRect&        aDirtyRect,
+                         const nsRect&        aRect);
+@@ -128,17 +132,18 @@
+   PRBool InsertSeparatorBeforeAccessKey();
+ 
+   CroppingStyle mCropType;
+   nsString mTitle;
+   nsString mCroppedTitle;
+   nsString mAccessKey;
+   nscoord mTitleWidth;
+   nsAccessKeyInfo* mAccessKeyInfo;
+-  PRBool mNeedsRecalc;
++  PRPackedBool mNeedsRecalc;
++  PRPackedBool mNeedsReflowCallback;
+   nsSize mTextSize;
+   nscoord mAscent;
+ 
+   static PRBool gAlwaysAppendAccessKey;
+   static PRBool gAccessKeyPrefInitialized;
+   static PRBool gInsertSeparatorBeforeAccessKey;
+   static PRBool gInsertSeparatorPrefInitialized;
+ 

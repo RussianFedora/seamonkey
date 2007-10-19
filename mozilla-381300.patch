@@ -18,9 +18,14 @@
 
 Index: mozilla/caps/src/nsPrincipal.cpp
 ===================================================================
---- mozilla.orig/caps/src/nsPrincipal.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/caps/src/nsPrincipal.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -260,15 +260,10 @@
+--- mozilla.orig/caps/src/nsPrincipal.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/caps/src/nsPrincipal.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -255,60 +255,29 @@
+         aOther->GetSubjectName(str);
+         *aResult = str.Equals(mCert->subjectName) || str.IsEmpty();
+       }
+         
+       return NS_OK;
      }
  
      // Codebases are equal if they have the same origin.
@@ -40,7 +45,9 @@ Index: mozilla/caps/src/nsPrincipal.cpp
    }
  
    *aResult = PR_TRUE;
-@@ -278,32 +273,6 @@
+   return NS_OK;
+ }
+ 
  NS_IMETHODIMP
  nsPrincipal::Subsumes(nsIPrincipal *aOther, PRBool *aResult)
  {
@@ -73,11 +80,21 @@ Index: mozilla/caps/src/nsPrincipal.cpp
    return Equals(aOther, aResult);
  }
  
+ NS_IMETHODIMP
+ nsPrincipal::CanEnableCapability(const char *capability, PRInt16 *result)
+ {
+   // If this principal is marked invalid, can't enable any capabilities
+   nsCStringKey invalidKey(sInvalid);
 Index: mozilla/caps/src/nsScriptSecurityManager.cpp
 ===================================================================
---- mozilla.orig/caps/src/nsScriptSecurityManager.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/caps/src/nsScriptSecurityManager.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -273,7 +273,7 @@
+--- mozilla.orig/caps/src/nsScriptSecurityManager.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/caps/src/nsScriptSecurityManager.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -268,17 +268,17 @@
+     *result = PR_FALSE;
+ 
+     if (aSourceURI == aTargetURI)
+     {
+         *result = PR_TRUE;
          return NS_OK;
      }
  
@@ -86,7 +103,17 @@ Index: mozilla/caps/src/nsScriptSecurityManager.cpp
      {
          // return false
          return NS_OK;
-@@ -863,8 +863,14 @@
+     }
+ 
+     // If either uri is a jar URI, get the base URI
+     nsCOMPtr<nsIJARURI> jarURI;
+     nsCOMPtr<nsIURI> sourceBaseURI(aSourceURI);
+@@ -858,34 +858,46 @@
+                                                           PRBool aIsCheckConnect)
+ {
+     /*
+     ** Get origin of subject and object and compare.
+     */
      if (aSubject == aObject)
          return NS_OK;
  
@@ -101,7 +128,10 @@ Index: mozilla/caps/src/nsScriptSecurityManager.cpp
      if (aIsCheckConnect)
      {
          // Don't use domain for CheckConnect calls, since that's called for
-@@ -875,12 +881,18 @@
+         // data-only load checks like XMLHTTPRequest (bug 290100).
+         aSubject->GetURI(getter_AddRefs(subjectURI));
+         aObject->GetURI(getter_AddRefs(objectURI));
+     }
      else
      {
          aSubject->GetDomain(getter_AddRefs(subjectURI));
@@ -122,7 +152,17 @@ Index: mozilla/caps/src/nsScriptSecurityManager.cpp
      }
  
      PRBool isSameOrigin = PR_FALSE;
-@@ -899,24 +911,11 @@
+     nsresult rv = SecurityCompareURIs(subjectURI, objectURI, &isSameOrigin);
+     NS_ENSURE_SUCCESS(rv, rv);
+ 
+     if (isSameOrigin)
+     {   // If either the subject or the object has changed its principal by
+@@ -894,34 +906,21 @@
+         // DNS spoofing based on document.domain (154930)
+ 
+         // But this restriction does not apply to CheckConnect calls, since
+         // that's called for data-only load checks like XMLHTTPRequest where
+         // we ignore domain (bug 290100).
          if (aIsCheckConnect)
              return NS_OK;
  
@@ -148,11 +188,21 @@ Index: mozilla/caps/src/nsScriptSecurityManager.cpp
      /*
      ** Access tests failed, so now report error.
      */
+     return NS_ERROR_DOM_PROP_ACCESS_DENIED;
+ }
+ 
+ 
+ nsresult
 Index: mozilla/content/base/public/nsIDocument.h
 ===================================================================
---- mozilla.orig/content/base/public/nsIDocument.h	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/content/base/public/nsIDocument.h	2007-07-16 11:53:05.000000000 +0200
-@@ -841,7 +841,7 @@
+--- mozilla.orig/content/base/public/nsIDocument.h	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/content/base/public/nsIDocument.h	2007-10-09 12:48:38.000000000 +0200
+@@ -836,17 +836,17 @@
+   // The document's security info
+   nsCOMPtr<nsISupports> mSecurityInfo;
+ 
+   // if this document is part of a multipart document,
+   // the ID can be used to distinguish it from the other parts.
    PRUint32 mPartID;
  };
  
@@ -161,7 +211,17 @@ Index: mozilla/content/base/public/nsIDocument.h
  #define NS_IDOCUMENT_MOZILLA_1_8_0_BRANCH_IID      \
  { 0x7d001ad2, 0x01ac, 0x4bf2, \
    { 0xb8, 0x3a, 0x50, 0xaa, 0xed, 0xc6, 0x1d, 0xfa } }
-@@ -870,6 +870,46 @@
+ 
+ class nsIDocument_MOZILLA_1_8_0_BRANCH : public nsISupports
+ {
+ public:
+   NS_DEFINE_STATIC_IID_ACCESSOR(NS_IDOCUMENT_MOZILLA_1_8_0_BRANCH_IID)
+@@ -865,16 +865,56 @@
+    *
+    * @param aIndex the index of the child to remove
+    * @param aNotify whether to notify the document that the remove has
+    *        occurred
+    */
    virtual nsresult RemoveChildAt(PRUint32 aIndex, PRBool aNotify) = 0;
  };
  
@@ -208,11 +268,21 @@ Index: mozilla/content/base/public/nsIDocument.h
  /**
   * Helper class to automatically handle batching of document updates.  This
   * class will call BeginUpdate on construction and EndUpdate on destruction on
+  * the given document with the given update type.  The document could be null,
+  * in which case no updates will be called.  The constructor also takes a
+  * boolean that can be set to false to prevent notifications.
+  */
+ class mozAutoDocUpdate
 Index: mozilla/content/base/src/nsDocument.cpp
 ===================================================================
---- mozilla.orig/content/base/src/nsDocument.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/content/base/src/nsDocument.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -783,6 +783,7 @@
+--- mozilla.orig/content/base/src/nsDocument.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/content/base/src/nsDocument.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -778,16 +778,17 @@
+ // =
+ // ==================================================================
+ 
+   // NOTE! nsDocument::operator new() zeroes out all members, so don't
+   // bother initializing members to 0.
  
  nsDocument::nsDocument()
    : nsIDocument(),
@@ -220,7 +290,17 @@ Index: mozilla/content/base/src/nsDocument.cpp
      mVisible(PR_TRUE)
  {
  #ifdef PR_LOGGING
-@@ -916,6 +917,7 @@
+   if (!gDocumentLeakPRLog)
+     gDocumentLeakPRLog = PR_NewLogModule("DocumentLeak");
+ 
+   if (gDocumentLeakPRLog)
+     PR_LOG(gDocumentLeakPRLog, PR_LOG_DEBUG,
+@@ -911,16 +912,17 @@
+ }
+ 
+ PRBool gCheckedForXPathDOM = PR_FALSE;
+ PRBool gHaveXPathDOM = PR_FALSE;
+ 
  NS_INTERFACE_MAP_BEGIN(nsDocument)
    NS_INTERFACE_MAP_ENTRY(nsIDocument)
    NS_INTERFACE_MAP_ENTRY(nsIDocument_MOZILLA_1_8_0_BRANCH)
@@ -228,11 +308,21 @@ Index: mozilla/content/base/src/nsDocument.cpp
    NS_INTERFACE_MAP_ENTRY(nsIDOMDocument)
    NS_INTERFACE_MAP_ENTRY(nsIDOMNSDocument)
    NS_INTERFACE_MAP_ENTRY(nsIDOMDocumentEvent)
+   NS_INTERFACE_MAP_ENTRY(nsIDOM3DocumentEvent)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMDocumentStyle)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMNSDocumentStyle)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMDocumentView)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMDocumentRange)
 Index: mozilla/content/base/src/nsDocument.h
 ===================================================================
---- mozilla.orig/content/base/src/nsDocument.h	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/content/base/src/nsDocument.h	2007-07-16 11:53:05.000000000 +0200
-@@ -365,6 +365,7 @@
+--- mozilla.orig/content/base/src/nsDocument.h	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/content/base/src/nsDocument.h	2007-10-09 12:48:38.000000000 +0200
+@@ -360,16 +360,17 @@
+ // really an nsIDOMXMLDocument. The reason for implementing
+ // nsIDOMXMLDocument on this class is to avoid having to duplicate all
+ // its inherited methods on document classes that *are*
+ // nsIDOMXMLDocument's. nsDocument's QI should *not* claim to support
+ // nsIDOMXMLDocument unless someone writes a real implementation of
  // the interface.
  class nsDocument : public nsIDocument,
                     public nsIDocument_MOZILLA_1_8_0_BRANCH,
@@ -240,11 +330,21 @@ Index: mozilla/content/base/src/nsDocument.h
                     public nsIDOMXMLDocument, // inherits nsIDOMDocument
                     public nsIDOMNSDocument,
                     public nsIDOMDocumentEvent,
+                    public nsIDOM3DocumentEvent,
+                    public nsIDOMNSDocumentStyle,
+                    public nsIDOMDocumentView,
+                    public nsIDOMDocumentRange,
+                    public nsIDOMDocumentTraversal,
 Index: mozilla/content/base/src/nsFrameLoader.cpp
 ===================================================================
---- mozilla.orig/content/base/src/nsFrameLoader.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/content/base/src/nsFrameLoader.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -165,6 +165,13 @@
+--- mozilla.orig/content/base/src/nsFrameLoader.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/content/base/src/nsFrameLoader.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -160,16 +160,23 @@
+   rv = secMan->GetSystemPrincipal(getter_AddRefs(sysPrin));
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+   if (principal == sysPrin) {
+     // We're a chrome node.  Belt and braces -- inherit the principal for this
      // load instead of just forcing the system principal.  That way if we have
      // something loaded already the principal used will be that of what we
      // already have loaded.
@@ -258,11 +358,21 @@ Index: mozilla/content/base/src/nsFrameLoader.cpp
      loadInfo->SetInheritOwner(PR_TRUE);
  
      // Also, in this case we don't set a referrer, just in case.
+   } else {
+     // We'll use our principal, not that of the document loaded inside us.
+     // This is very important; needed to prevent XSS attacks on documents
+     // loaded in subframes!
+     loadInfo->SetOwner(principal);
 Index: mozilla/content/html/document/src/nsHTMLDocument.cpp
 ===================================================================
---- mozilla.orig/content/html/document/src/nsHTMLDocument.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/content/html/document/src/nsHTMLDocument.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -2020,10 +2020,24 @@
+--- mozilla.orig/content/html/document/src/nsHTMLDocument.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/content/html/document/src/nsHTMLDocument.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -2026,20 +2026,34 @@
+ 
+   // Hold onto ourselves on the offchance that we're down to one ref
+   nsRefPtr<nsHTMLDocument> kungFuDeathGrip(this);
+ 
+   if (mScriptGlobalObject) {
      // Rememer the old scope in case the call to SetNewDocument changes it.
      nsCOMPtr<nsIScriptGlobalObject> oldScope(do_QueryReferent(mScopeObject));
  
@@ -287,7 +397,17 @@ Index: mozilla/content/html/document/src/nsHTMLDocument.cpp
      nsCOMPtr<nsIScriptGlobalObject> newScope(do_QueryReferent(mScopeObject));
      if (oldScope && newScope != oldScope) {
        nsContentUtils::ReparentContentWrappersInScope(oldScope, newScope);
-@@ -2359,36 +2373,6 @@
+     }
+   }
+ 
+   // XXX This is a nasty workaround for a scrollbar code bug
+   // (http://bugzilla.mozilla.org/show_bug.cgi?id=55334).
+@@ -2365,46 +2379,16 @@
+ nsHTMLDocument::ScriptWriteCommon(PRBool aNewlineTerminate)
+ {
+   nsCOMPtr<nsIXPCNativeCallContext> ncc;
+ 
+   nsresult rv = nsContentUtils::XPConnect()->
      GetCurrentNativeCallContext(getter_AddRefs(ncc));
    NS_ENSURE_SUCCESS(rv, rv);
  
@@ -324,11 +444,21 @@ Index: mozilla/content/html/document/src/nsHTMLDocument.cpp
    if (ncc) {
      // We're called from JS, concatenate the extra arguments into
      // string_buffer
+     PRUint32 i, argc;
+ 
+     ncc->GetArgc(&argc);
+ 
+     JSContext *cx = nsnull;
 Index: mozilla/docshell/base/nsDocShell.cpp
 ===================================================================
---- mozilla.orig/docshell/base/nsDocShell.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/docshell/base/nsDocShell.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -3226,21 +3226,20 @@
+--- mozilla.orig/docshell/base/nsDocShell.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/docshell/base/nsDocShell.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -3238,31 +3238,30 @@
+     /* If you change this part of code, make sure bug 45297 does not re-occur */
+     if (mOSHE) {
+         rv = LoadHistoryEntry(mOSHE, type);
+     }
+     else if (mLSHE) { // In case a reload happened before the current load is done
          rv = LoadHistoryEntry(mLSHE, type);
      }
      else {
@@ -359,7 +489,17 @@ Index: mozilla/docshell/base/nsDocShell.cpp
                            nsnull,         // No window target
                            NS_LossyConvertUCS2toASCII(contentTypeHint).get(),
                            nsnull,         // No post data
-@@ -4859,7 +4858,38 @@
+                           nsnull,         // No headers data
+                           type,           // Load type
+                           nsnull,         // No SHEntry
+                           PR_TRUE,
+                           nsnull,         // No nsIDocShell
+@@ -4871,17 +4870,48 @@
+ NS_IMETHODIMP
+ nsDocShell::EnsureContentViewer()
+ {
+     if (mContentViewer)
+         return NS_OK;
      if (mIsBeingDestroyed)
          return NS_ERROR_FAILURE;
  
@@ -399,7 +539,17 @@ Index: mozilla/docshell/base/nsDocShell.cpp
  }
  
  NS_IMETHODIMP
-@@ -6300,12 +6330,28 @@
+ nsDocShell::EnsureDeviceContext()
+ {
+     if (mDeviceContext)
+         return NS_OK;
+ 
+@@ -6322,22 +6352,38 @@
+             return NS_ERROR_CONTENT_BLOCKED_SHOW_ALT;
+         }
+ 
+         return NS_ERROR_CONTENT_BLOCKED;
+     }
  
      nsCOMPtr<nsISupports> owner(aOwner);
      //
@@ -432,7 +582,17 @@ Index: mozilla/docshell/base/nsDocShell.cpp
  
      //
      // Resolve the window target before going any further...
-@@ -6684,42 +6730,51 @@
+     // If the load has been targeted to another DocShell, then transfer the
+     // load to it...
+     //
+     if (aWindowTarget && *aWindowTarget) {
+         PRBool bIsNewWindow;
+@@ -6706,52 +6752,61 @@
+     if (NS_FAILED(rv)) {
+         nsCOMPtr<nsIChannel> chan(do_QueryInterface(req));
+         DisplayLoadError(rv, aURI, nsnull, chan);
+     }
+     
      return rv;
  }
  
@@ -505,7 +665,17 @@ Index: mozilla/docshell/base/nsDocShell.cpp
  }
  
  nsresult
-@@ -6885,7 +6940,12 @@
+ nsDocShell::DoURILoad(nsIURI * aURI,
+                       nsIURI * aReferrerURI,
+                       PRBool aSendReferrer,
+                       nsISupports * aOwner,
+                       const char * aTypeHint,
+@@ -6907,27 +6962,32 @@
+             // Referrer is currenly only set for link clicks here.
+             httpChannel->SetReferrer(aReferrerURI);
+         }
+     }
+     //
      // Set the owner of the channel - only for javascript and data channels.
      //
      // XXX: Is seems wrong that the owner is ignored - even if one is
@@ -519,7 +689,9 @@ Index: mozilla/docshell/base/nsDocShell.cpp
      //
      //      (Currently chrome URIs set the owner when they are created!
      //      So setting a NULL owner would be bad!)
-@@ -6895,7 +6955,7 @@
+     //
+     PRBool isJSOrData = PR_FALSE;
+     aURI->SchemeIs("javascript", &isJSOrData);
      if (!isJSOrData) {
        aURI->SchemeIs("data", &isJSOrData);
      }
@@ -528,7 +700,17 @@ Index: mozilla/docshell/base/nsDocShell.cpp
          channel->SetOwner(aOwner);
      }
  
-@@ -8730,3 +8790,21 @@
+     rv = DoChannelLoad(channel, uriLoader);
+     
+     //
+     // If the channel load failed, we failed and nsIWebProgress just ain't
+     // gonna happen.
+@@ -8752,8 +8812,26 @@
+ 
+     nsCOMPtr<nsIDOMWindow> window(do_QueryInterface(mScriptGlobal));
+ 
+     // Get the an auth prompter for our window so that the parenting
+     // of the dialogs works as it should when using tabs.
  
      return wwatch->GetNewAuthPrompter(window, aResult);
  }
@@ -552,9 +734,14 @@ Index: mozilla/docshell/base/nsDocShell.cpp
 +                                     
 Index: mozilla/docshell/base/nsDocShell.h
 ===================================================================
---- mozilla.orig/docshell/base/nsDocShell.h	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/docshell/base/nsDocShell.h	2007-07-16 11:53:05.000000000 +0200
-@@ -287,7 +287,18 @@
+--- mozilla.orig/docshell/base/nsDocShell.h	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/docshell/base/nsDocShell.h	2007-10-09 12:48:38.000000000 +0200
+@@ -284,17 +284,28 @@
+     NS_IMETHOD NewContentViewerObj(const char * aContentType, 
+         nsIRequest * request, nsILoadGroup * aLoadGroup, 
+         nsIStreamListener ** aContentHandler, nsIContentViewer ** aViewer);
+     NS_IMETHOD SetupNewViewer(nsIContentViewer * aNewViewer);
+ 
      void SetupReferrerFromChannel(nsIChannel * aChannel);
      
      NS_IMETHOD GetEldestPresContext(nsPresContext** aPresContext);
@@ -574,7 +761,17 @@ Index: mozilla/docshell/base/nsDocShell.h
      virtual nsresult DoURILoad(nsIURI * aURI,
                                 nsIURI * aReferrer,
                                 PRBool aSendReferrer,
-@@ -511,6 +522,9 @@
+                                nsISupports * aOwner,
+                                const char * aTypeHint,
+                                nsIInputStream * aPostData,
+                                nsIInputStream * aHeadersData,
+                                PRBool firstParty,
+@@ -509,16 +520,19 @@
+     // Begin the toplevel restore process for |aSHEntry|.
+     // This simulates a channel open, and defers the real work until
+     // RestoreFromHistory is called from a PLEvent.
+     nsresult RestorePresentation(nsISHEntry *aSHEntry, PRBool *aRestoring);
+ 
      // Call BeginRestore(nsnull, PR_FALSE) for each child of this shell.
      nsresult BeginRestoreChildren();
  
@@ -584,11 +781,21 @@ Index: mozilla/docshell/base/nsDocShell.h
  protected:
      // Override the parent setter from nsDocLoader
      virtual nsresult SetDocLoaderParent(nsDocLoader * aLoader);
+ 
+     PRPackedBool               mAllowSubframes;
+     PRPackedBool               mAllowPlugins;
+     PRPackedBool               mAllowJavascript;
+     PRPackedBool               mAllowMetaRedirects;
 Index: mozilla/dom/public/base/nsPIDOMWindow.h
 ===================================================================
---- mozilla.orig/dom/public/base/nsPIDOMWindow.h	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/dom/public/base/nsPIDOMWindow.h	2007-07-16 11:53:05.000000000 +0200
-@@ -50,6 +50,8 @@
+--- mozilla.orig/dom/public/base/nsPIDOMWindow.h	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/dom/public/base/nsPIDOMWindow.h	2007-10-09 12:48:38.000000000 +0200
+@@ -45,16 +45,18 @@
+ #include "nsIDOMXULCommandDispatcher.h"
+ #include "nsIDOMElement.h"
+ #include "nsIDOMWindowInternal.h"
+ #include "nsIChromeEventHandler.h"
+ #include "nsIDOMDocument.h"
  #include "nsIURI.h"
  #include "nsCOMPtr.h"
  
@@ -597,7 +804,17 @@ Index: mozilla/dom/public/base/nsPIDOMWindow.h
  // Popup control state enum. The values in this enum must go from most
  // permissive to least permissive so that it's safe to push state in
  // all situations. Pushing popup state onto the stack never makes the
-@@ -252,6 +254,8 @@
+ // current popup state less permissive (see
+ // nsGlobalWindow::PushPopupControlState()).
+ enum PopupControlState {
+   openAllowed = 0,  // open that window without worries
+   openControlled,   // it's a popup, but allow it
+@@ -247,16 +249,18 @@
+       }
+ 
+       win = this;
+     }
+ 
      return win->mIsHandlingResizeEvent;
    }
  
@@ -606,7 +823,17 @@ Index: mozilla/dom/public/base/nsPIDOMWindow.h
    virtual void SetOpenerScriptURL(nsIURI* aURI) = 0;
  
    virtual PopupControlState PushPopupControlState(PopupControlState aState,
-@@ -313,7 +317,6 @@
+                                                   PRBool aForce) const = 0;
+   virtual void PopPopupControlState(PopupControlState state) const = 0;
+   virtual PopupControlState GetPopupControlState() const = 0;
+   virtual OpenAllowValue GetOpenAllow(const nsAString &aName) = 0;
+ 
+@@ -308,32 +312,55 @@
+   // These two variables are special in that they're set to the same
+   // value on both the outer window and the current inner window. Make
+   // sure you keep them in sync!
+   nsCOMPtr<nsIChromeEventHandler> mChromeEventHandler; // strong
+   nsCOMPtr<nsIDOMDocument> mDocument; // strong
  
    // These members are only used on outer windows.
    nsIDOMElement *mFrameElement; // weak
@@ -614,7 +841,15 @@ Index: mozilla/dom/public/base/nsPIDOMWindow.h
  
    // These variables are only used on inner windows.
    nsTimeout             *mRunningTimeout;
-@@ -329,6 +332,30 @@
+ 
+   PRUint32               mMutationBits;
+ 
+   PRPackedBool           mIsDocumentLoaded;
+   PRPackedBool           mIsHandlingResizeEvent;
+   PRPackedBool           mIsInnerWindow;
+ 
+   // And these are the references between inner and outer windows.
+   nsPIDOMWindow         *mInnerWindow;
    nsPIDOMWindow         *mOuterWindow;
  };
  
@@ -645,11 +880,21 @@ Index: mozilla/dom/public/base/nsPIDOMWindow.h
  
  #ifdef _IMPL_NS_LAYOUT
  PopupControlState
+ PushPopupControlState(PopupControlState aState, PRBool aForce);
+ 
+ void
+ PopPopupControlState(PopupControlState aState);
+ 
 Index: mozilla/dom/src/base/nsGlobalWindow.cpp
 ===================================================================
---- mozilla.orig/dom/src/base/nsGlobalWindow.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/dom/src/base/nsGlobalWindow.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -296,13 +296,28 @@
+--- mozilla.orig/dom/src/base/nsGlobalWindow.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/dom/src/base/nsGlobalWindow.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -291,23 +291,38 @@
+ static const char sJSStackContractID[] = "@mozilla.org/js/xpc/ContextStack;1";
+ 
+ static const char kDOMBundleURL[] = "chrome://global/locale/commonDialogs.properties";
+ static const char kDOMSecurityWarningsBundleURL[] = "chrome://global/locale/dom/dom.properties";
+ 
  static const char kCryptoContractID[] = NS_CRYPTO_CONTRACTID;
  static const char kPkcs11ContractID[] = NS_PKCS11_CONTRACTID;
  
@@ -679,7 +924,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
      mIsFrozen(PR_FALSE),
      mFullScreen(PR_FALSE),
      mIsClosed(PR_FALSE), 
-@@ -521,6 +536,7 @@
+     mInClose(PR_FALSE), 
+     mHavePendingClose(PR_FALSE),
+     mOpenerWasCleared(PR_FALSE),
+     mIsPopupSpam(PR_FALSE),
+     mArguments(nsnull),
+@@ -516,16 +531,17 @@
+   NS_INTERFACE_MAP_ENTRY(nsIDOMJSWindow)
+   NS_INTERFACE_MAP_ENTRY(nsIScriptGlobalObject)
+   NS_INTERFACE_MAP_ENTRY(nsIScriptObjectPrincipal)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMEventReceiver)
+   NS_INTERFACE_MAP_ENTRY(nsIDOMEventTarget)
    NS_INTERFACE_MAP_ENTRY(nsIDOM3EventTarget)
    NS_INTERFACE_MAP_ENTRY(nsIDOMNSEventTarget)
    NS_INTERFACE_MAP_ENTRY(nsPIDOMWindow)
@@ -687,7 +942,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
    NS_INTERFACE_MAP_ENTRY(nsIDOMViewCSS)
    NS_INTERFACE_MAP_ENTRY(nsIDOMAbstractView)
    NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
-@@ -581,70 +597,52 @@
+   NS_INTERFACE_MAP_ENTRY(nsIInterfaceRequestor)
+   NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(Window)
+ NS_INTERFACE_MAP_END
+ 
+ 
+@@ -576,80 +592,62 @@
+   FORWARD_TO_OUTER(GetContext, (), nsnull);
+ 
+   return mContext;
+ }
+ 
  PRBool
  nsGlobalWindow::WouldReuseInnerWindow(nsIDocument *aNewDocument)
  {
@@ -783,7 +1048,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
    }
  
    nsCOMPtr<nsIDocShellTreeItem> treeItem(do_QueryInterface(mDocShell));
-@@ -664,9 +662,49 @@
+ 
+   if (treeItem) {
+     PRInt32 itemType = nsIDocShellTreeItem::typeContent;
+     treeItem->GetItemType(&itemType);
+ 
+@@ -659,19 +657,59 @@
+ 
+   // No treeItem: don't reuse the current inner window.
+   return PR_FALSE;
+ }
+ 
  void
  nsGlobalWindow::SetOpenerScriptURL(nsIURI* aURI)
  {
@@ -835,7 +1110,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
  }
  
  PopupControlState
-@@ -944,7 +982,7 @@
+ PushPopupControlState(PopupControlState aState, PRBool aForce)
+ {
+   PopupControlState oldState = gPopupControlState;
+ 
+   if (aState < gPopupControlState || aForce) {
+@@ -939,17 +977,17 @@
+   SetStatus(EmptyString());
+   SetDefaultStatus(EmptyString());
+ 
+   // This code should not be called during shutdown any more (now that
+   // we don't ever call SetNewDocument(nsnull), so no need to null
    // check xpc here.
    nsIXPConnect *xpc = nsContentUtils::XPConnect();
  
@@ -844,7 +1129,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
  
    // XXX We used to share event listeners between inner windows in special
    // circumstances (that were remarkably close to the conditions that we set
-@@ -3530,6 +3568,7 @@
+   // reUseInnerWindow in) but that left dangling pointers to the old (destroyed)
+   // inner window (bug 303765). Setting this here should be a no-op.
+   aRemoveEventListeners = !reUseInnerWindow;
+ 
+   // Remember the old document's principal.
+@@ -3525,33 +3563,30 @@
+     if (embeddingWin)
+       embeddingWin->SetFocus();
+   }
+ 
+   nsCOMPtr<nsIPresShell> presShell;
    if (mDocShell) {
      // Don't look for a presshell if we're a root chrome window that's got
      // about:blank loaded.  We don't want to focus our widget in that case.
@@ -852,7 +1147,11 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
      PRBool lookForPresShell = PR_TRUE;
      PRInt32 itemType = nsIDocShellTreeItem::typeContent;
      nsCOMPtr<nsIDocShellTreeItem> treeItem(do_QueryInterface(mDocShell));
-@@ -3541,12 +3580,8 @@
+     NS_ASSERTION(treeItem, "What happened?");
+     treeItem->GetItemType(&itemType);
+     if (itemType == nsIDocShellTreeItem::typeChrome &&
+         GetPrivateRoot() == NS_STATIC_CAST(nsIDOMWindowInternal*, this) &&
+         mDocument) {
        nsCOMPtr<nsIDocument> doc(do_QueryInterface(mDocument));
        NS_ASSERTION(doc, "Bogus doc?");
        nsIURI* ourURI = doc->GetDocumentURI();
@@ -867,7 +1166,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
        }
      }
        
-@@ -5978,25 +6013,7 @@
+     if (lookForPresShell) {
+       mDocShell->GetEldestPresShell(getter_AddRefs(presShell));
+     }
+   }
+ 
+@@ -5973,35 +6008,17 @@
+                                   aExtraArgument, getter_AddRefs(domReturn));
+         }
+       }
+     }
+   }
  
    // success!
  
@@ -894,11 +1203,21 @@ Index: mozilla/dom/src/base/nsGlobalWindow.cpp
  
    return rv;
  }
+ 
+ // static
+ void
+ nsGlobalWindow::CloseWindow(nsISupports *aWindow)
+ {
 Index: mozilla/dom/src/base/nsGlobalWindow.h
 ===================================================================
---- mozilla.orig/dom/src/base/nsGlobalWindow.h	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/dom/src/base/nsGlobalWindow.h	2007-07-16 11:53:05.000000000 +0200
-@@ -129,7 +129,7 @@
+--- mozilla.orig/dom/src/base/nsGlobalWindow.h	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/dom/src/base/nsGlobalWindow.h	2007-10-09 12:48:38.000000000 +0200
+@@ -124,17 +124,17 @@
+ // needed to ensure that mOuterWindow doesn't end up dangling. The
+ // nature of PRCList means that the window itself is always in the
+ // list, and an outer window's list will also contain all inner window
+ // objects that are still in memory (and in reality all inner window
+ // object's lists also contain its outer and all other inner windows
  // belonging to the same outer window, but that's an unimportant
  // side effect of inheriting PRCList).
  
@@ -907,7 +1226,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.h
                         public nsIScriptGlobalObject,
                         public nsIDOMJSWindow,
                         public nsIScriptObjectPrincipal,
-@@ -224,6 +224,10 @@
+                        public nsIDOMEventReceiver,
+                        public nsIDOM3EventTarget,
+                        public nsIDOMNSEventTarget,
+                        public nsIDOMViewCSS,
+                        public nsSupportsWeakReference,
+@@ -219,16 +219,20 @@
+   virtual NS_HIDDEN_(PopupControlState) GetPopupControlState() const;
+   virtual NS_HIDDEN_(OpenAllowValue) GetOpenAllow(const nsAString &aName);
+ 
+   virtual NS_HIDDEN_(nsresult) SaveWindowState(nsISupports **aState);
+   virtual NS_HIDDEN_(nsresult) RestoreWindowState(nsISupports *aState);
  
    virtual NS_HIDDEN_(PRBool) WouldReuseInnerWindow(nsIDocument *aNewDocument);
  
@@ -918,7 +1247,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.h
    // nsIDOMViewCSS
    NS_DECL_NSIDOMVIEWCSS
  
-@@ -294,8 +298,6 @@
+   // nsIDOMAbstractView
+   NS_DECL_NSIDOMABSTRACTVIEW
+ 
+   // nsIInterfaceRequestor
+   NS_DECL_NSIINTERFACEREQUESTOR
+@@ -289,18 +293,16 @@
+   void FreeInnerObjects(JSContext *cx);
+ 
+   nsresult SetNewDocument(nsIDOMDocument *aDocument,
+                           nsISupports *aState,
+                           PRBool aRemoveEventListeners,
                            PRBool aClearScopeHint,
                            PRBool aIsInternalCall);
  
@@ -927,7 +1266,17 @@ Index: mozilla/dom/src/base/nsGlobalWindow.h
    // Get the parent, returns null if this is a toplevel window
    nsIDOMWindowInternal *GetParentInternal();
  
-@@ -461,6 +463,8 @@
+   // popup tracking
+   PRBool IsPopupSpamWindow()
+   {
+     if (IsInnerWindow() && !mOuterWindow) {
+       return PR_FALSE;
+@@ -456,16 +458,18 @@
+   nsString                      mDefaultStatus;
+ 
+   nsIScriptGlobalObjectOwner*   mGlobalObjectOwner; // Weak Reference
+   nsIDocShell*                  mDocShell;  // Weak Reference
+   nsCOMPtr<nsIDOMCrypto>        mCrypto;
    nsCOMPtr<nsIDOMPkcs11>        mPkcs11;
  
    nsCOMPtr<nsIXPConnectJSObjectHolder> mInnerWindowHolder;
@@ -936,11 +1285,21 @@ Index: mozilla/dom/src/base/nsGlobalWindow.h
  
    // These member variable are used only on inner windows.
    nsCOMPtr<nsIEventListenerManager> mListenerManager;
+   nsTimeout*                    mTimeouts;
+   nsTimeout**                   mTimeoutInsertionPoint;
+   PRUint32                      mTimeoutPublicIdCounter;
+   PRUint32                      mTimeoutFiringDepth;
+ 
 Index: mozilla/dom/src/jsurl/nsJSProtocolHandler.cpp
 ===================================================================
---- mozilla.orig/dom/src/jsurl/nsJSProtocolHandler.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/dom/src/jsurl/nsJSProtocolHandler.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -222,10 +222,8 @@
+--- mozilla.orig/dom/src/jsurl/nsJSProtocolHandler.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/dom/src/jsurl/nsJSProtocolHandler.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -217,20 +217,18 @@
+     PRBool useSandbox = PR_TRUE;
+ 
+     if (owner) {
+         principal = do_QueryInterface(owner, &rv);
+         NS_ASSERTION(principal, "Channel's owner is not a principal");
          if (!principal)
              return NS_ERROR_FAILURE;
  
@@ -953,11 +1312,21 @@ Index: mozilla/dom/src/jsurl/nsJSProtocolHandler.cpp
          nsCOMPtr<nsIPrincipal> objectPrincipal;
          rv = securityManager->GetObjectPrincipal(
                                  (JSContext*)scriptContext->GetNativeContext(),
+                                 globalJSObject,
+                                 getter_AddRefs(objectPrincipal));
+         if (NS_FAILED(rv))
+             return rv;
+ 
 Index: mozilla/embedding/components/windowwatcher/src/Makefile.in
 ===================================================================
---- mozilla.orig/embedding/components/windowwatcher/src/Makefile.in	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/embedding/components/windowwatcher/src/Makefile.in	2007-07-16 11:53:05.000000000 +0200
-@@ -63,6 +63,7 @@
+--- mozilla.orig/embedding/components/windowwatcher/src/Makefile.in	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/embedding/components/windowwatcher/src/Makefile.in	2007-10-09 12:48:38.000000000 +0200
+@@ -58,16 +58,17 @@
+ 		  content \
+ 		  pref \
+ 		  necko \
+ 		  docshell \
+ 		  webbrwsr \
  		  embed_base \
  		  intl \
  		  layout \
@@ -965,11 +1334,21 @@ Index: mozilla/embedding/components/windowwatcher/src/Makefile.in
  		  $(NULL)
  
  CPPSRCS		= nsPrompt.cpp \
+                   nsWWJSUtils.cpp \
+                   nsWindowWatcher.cpp  \
+                   $(NULL)
+ 
+ ifdef MOZ_XUL
 Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
 ===================================================================
---- mozilla.orig/embedding/components/windowwatcher/src/nsWindowWatcher.cpp	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp	2007-07-16 11:53:05.000000000 +0200
-@@ -58,6 +58,7 @@
+--- mozilla.orig/embedding/components/windowwatcher/src/nsWindowWatcher.cpp	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp	2007-10-09 12:48:38.000000000 +0200
+@@ -53,16 +53,17 @@
+ #include "nsIDocShellLoadInfo.h"
+ #include "nsIDocShellTreeItem.h"
+ #include "nsIDocShellTreeOwner.h"
+ #include "nsIDocument.h"
+ #include "nsIDOMDocument.h"
  #include "nsIDOMWindow.h"
  #include "nsIDOMChromeWindow.h"
  #include "nsIDOMWindowInternal.h"
@@ -977,7 +1356,17 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
  #include "nsIScreen.h"
  #include "nsIScreenManager.h"
  #include "nsIScriptContext.h"
-@@ -684,7 +685,7 @@
+ #include "nsIEventQueue.h"
+ #include "nsIEventQueueService.h"
+ #include "nsIGenericFactory.h"
+ #include "nsIJSContextStack.h"
+ #include "nsIObserverService.h"
+@@ -679,17 +680,17 @@
+       }
+     }
+   }
+ 
+   // better have a window to use by this point
    if (!newDocShellItem)
      return rv;
  
@@ -986,7 +1375,17 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
    if (NS_FAILED(rv))
      return rv;
  
-@@ -750,6 +751,43 @@
+   /* disable persistence of size/position in popups (determined by
+      determining whether the features parameter specifies width or height
+      in any way). We consider any overriding of the window's size or position
+      in the open call as disabling persistence of those attributes.
+      Popup windows (which should not persist size or position) generally set
+@@ -745,16 +746,53 @@
+         nsCOMPtr<nsIMarkupDocumentViewer> newMarkupDocViewer(do_QueryInterface(newContentViewer));
+         if (doc && newMarkupDocViewer) {
+           newMarkupDocViewer->SetDefaultCharacterSet(doc->GetDocumentCharacterSet());
+         }
+       }
      }
    }
  
@@ -1030,7 +1429,17 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
    if (uriToLoad) { // get the script principal and pass it to docshell
      JSContextAutoPopper contextGuard;
  
-@@ -769,15 +807,8 @@
+     cx = GetJSContextFromCallStack();
+ 
+     // get the security manager
+     if (!cx)
+       cx = GetJSContextFromWindow(aParent);
+@@ -764,25 +802,18 @@
+         return rv;
+       cx = contextGuard.get();
+     }
+ 
+     nsCOMPtr<nsIDocShellLoadInfo> loadInfo;
      newDocShell->CreateLoadInfo(getter_AddRefs(loadInfo));
      NS_ENSURE_TRUE(loadInfo, NS_ERROR_FAILURE);
  
@@ -1048,7 +1457,17 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
      }
  
      // Set the new window's referrer from the calling context's document:
-@@ -1523,6 +1554,7 @@
+ 
+     // get the calling context off the JS context stack
+     nsCOMPtr<nsIJSContextStack> stack = do_GetService(sJSStackContractID);
+ 
+     JSContext* ccx = nsnull;
+@@ -1518,26 +1549,36 @@
+ /* Fetch the nsIDOMWindow corresponding to the given nsIDocShellTreeItem.
+    This forces the creation of a script context, if one has not already
+    been created. Note it also sets the window's opener to the parent,
+    if applicable -- because it's just convenient, that's all. null aParent
+    is acceptable. */
  nsresult
  nsWindowWatcher::ReadyOpenedDocShellItem(nsIDocShellTreeItem *aOpenedItem,
                                           nsIDOMWindow        *aParent,
@@ -1056,7 +1475,10 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
                                           nsIDOMWindow        **aOpenedWindow)
  {
    nsresult rv = NS_ERROR_FAILURE;
-@@ -1533,6 +1565,15 @@
+ 
+   *aOpenedWindow = 0;
+   nsCOMPtr<nsIScriptGlobalObject> globalObject(do_GetInterface(aOpenedItem));
+   if (globalObject) {
      if (aParent) {
        nsCOMPtr<nsIDOMWindowInternal> internalParent(do_QueryInterface(aParent));
        globalObject->SetOpenerWindow(internalParent); // damnit
@@ -1072,11 +1494,21 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.cpp
      }
      rv = CallQueryInterface(globalObject, aOpenedWindow);
    }
+   return rv;
+ }
+ 
+ /* Size and position the new window according to aFeatures. This method
+    is assumed to be called after the window has already been given
 Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.h
 ===================================================================
---- mozilla.orig/embedding/components/windowwatcher/src/nsWindowWatcher.h	2007-07-16 11:51:44.000000000 +0200
-+++ mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.h	2007-07-16 11:53:05.000000000 +0200
-@@ -100,6 +100,7 @@
+--- mozilla.orig/embedding/components/windowwatcher/src/nsWindowWatcher.h	2007-10-09 12:48:36.000000000 +0200
++++ mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.h	2007-10-09 12:48:38.000000000 +0200
+@@ -95,16 +95,17 @@
+                                          PRBool aFeaturesSpecified,
+                                          PRBool aDialog,
+                                          PRBool aChromeURL,
+                                          PRBool aHasChromeParent);
+   static PRInt32    WinHasOption(const char *aOptions, const char *aName,
                                   PRInt32 aDefault, PRBool *aPresenceFlag);
    static nsresult   ReadyOpenedDocShellItem(nsIDocShellTreeItem *aOpenedItem,
                                              nsIDOMWindow *aParent,
@@ -1084,3 +1516,8 @@ Index: mozilla/embedding/components/windowwatcher/src/nsWindowWatcher.h
                                              nsIDOMWindow **aOpenedWindow);
    static void       SizeOpenedDocShellItem(nsIDocShellTreeItem *aDocShellItem,
                                             nsIDOMWindow *aParent,
+                                            const char *aFeatures,
+                                            PRUint32 aChromeFlags);
+   static nsresult   AttachArguments(nsIDOMWindow *aWindow,
+                                     PRUint32 argc, jsval *argv);
+   static nsresult   ConvertSupportsTojsvals(nsIDOMWindow *aWindow,

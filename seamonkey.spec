@@ -11,13 +11,13 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.0.9
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPL
 Group:          Applications/Internet
 
 #Source0:        seamonkey-%{version}.source.tar.bz2
-Source0:        mozilla-180-20070717.tar.bz2
+Source0:        mozilla-180-20071018.tar.bz2
 Source1:        seamonkey.sh.in
 Source2:        seamonkey-icon.png
 Source4:        seamonkey.desktop
@@ -42,12 +42,31 @@ Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch42:        firefox-1.1-uriloader.patch
 
-Patch60:        mozilla-358594.patch
-Patch61:        mozilla-379245.patch
-Patch62:        mozilla-382532.patch
-Patch63:        mozilla-178993.patch
-Patch65:        mozilla-384925.patch
-Patch66:        mozilla-381300.patch
+Patch50:        mozilla-358594.patch
+#Patch51:        mozilla-379245.patch
+#Patch52:        mozilla-382532.patch
+Patch53:        mozilla-178993.patch
+Patch55:        mozilla-384925.patch
+Patch56:        mozilla-381300.patch
+
+Patch60:        mozilla-309322_180_att283610.patch
+Patch61:        mozilla-267833.patch
+Patch62:        mozilla-345305_venkmanonly.patch
+Patch63:        mozilla-361745.patch
+Patch64:        mozilla-362901.patch
+Patch65:        mozilla-372309.patch
+Patch66:        mozilla-378787.patch
+Patch67:        mozilla-384105.patch
+Patch68:        mozilla-386914.patch
+Patch69:        mozilla-387033.patch
+Patch70:        mozilla-387881.patch
+Patch71:        mozilla-388121.patch
+Patch72:        mozilla-388784.patch
+Patch73:        mozilla-390078.patch
+Patch74:        mozilla-393537.patch
+Patch75:        mozilla-395942-180.patch
+Patch76:        mozilla-325761.patch
+Patch77:        mozilla-392149-180.patch
 
 # font system fixes
 Patch81:        firefox-1.5-nopangoxft.patch
@@ -144,12 +163,33 @@ application formerly known as Mozilla Application Suite.
 %patch21 -p1
 %patch22 -p1
 %patch42 -p0
+
+%patch50 -p1
+#%patch51 -p1
+#%patch52 -p1
+%patch53 -p1
+%patch55 -p1
+%patch56 -p1
+
 %patch60 -p1
 %patch61 -p1
 %patch62 -p1
 %patch63 -p1
+%patch64 -p1
 %patch65 -p1
 %patch66 -p1
+%patch67 -p1
+%patch68 -p1
+%patch69 -p1
+%patch70 -p1
+%patch71 -p1
+%patch72 -p1
+%patch73 -p1
+%patch74 -p1
+%patch75 -p1
+%patch76 -p1
+%patch77 -p1
+
 %patch81 -p1
 %patch82 -p1
 %patch83 -p1
@@ -470,6 +510,11 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Oct 18 2007 Martin Stransky <stransky@redhat.com> - 1.0.9-3
+- Update to latest snapshot of Mozilla 1.8.0 branch
+- added pathes for Mozilla bugs 267833,309322,345305,361745,
+  362901,372309,378787,381300,384105,386914,387033,387881,388121,388784
+  390078,393537,395942,325761,392149
 * Fri Jul 20 2007 Kai Engert <kengert@redhat.com> - 1.0.9-2
 - Add a patch to stick with gecko version 1.8.0.12
 - Update to latest snapshot of Mozilla 1.8.0 branch

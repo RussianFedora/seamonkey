@@ -1,0 +1,38 @@
+---
+ js/src/jsscript.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+Index: mozilla/js/src/jsscript.c
+===================================================================
+--- mozilla.orig/js/src/jsscript.c	2007-10-09 18:58:04.000000000 +0200
++++ mozilla/js/src/jsscript.c	2007-10-09 19:03:36.000000000 +0200
+@@ -223,19 +223,27 @@
+     fp = cx->fp;
+     caller = JS_GetScriptedCaller(cx, fp);
+     JS_ASSERT(!caller || fp->scopeChain == caller->scopeChain);
+ 
+     if (caller) {
+         if (!scopeobj)
+             scopeobj = caller->scopeChain;
+ 
+-        file = caller->script->filename;
+-        line = js_PCToLineNumber(cx, caller->script, caller->pc);
++        if (!scopeobj)
++            return JS_FALSE;
++
+         principals = JS_EvalFramePrincipals(cx, fp, caller);
++        if (principals == caller->script->principals) {
++            file = caller->script->filename;
++            line = js_PCToLineNumber(cx, caller->script, caller->pc);
++        } else {
++            file = principals->codebase;
++            line = 0;
++        }
+     } else {
+         file = NULL;
+         line = 0;
+         principals = NULL;
+     }
+ 
+     /* Ensure we compile this script with the right (inner) principals. */
+     scopeobj = js_CheckScopeChainValidity(cx, scopeobj, js_script_compile);

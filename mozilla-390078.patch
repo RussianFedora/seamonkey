@@ -1,0 +1,27 @@
+---
+ js/src/jsgc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: mozilla/js/src/jsgc.c
+===================================================================
+--- mozilla.orig/js/src/jsgc.c	2007-10-11 13:29:44.000000000 +0200
++++ mozilla/js/src/jsgc.c	2007-10-11 13:31:23.000000000 +0200
+@@ -1767,17 +1767,17 @@
+                 GC_MARK(cx, fp->thisp, "this", NULL);
+                 if (fp->argv) {
+                     nslots = fp->argc;
+                     if (fp->fun) {
+                         if (fp->fun->nargs > nslots)
+                             nslots = fp->fun->nargs;
+                         nslots += fp->fun->extra;
+                     }
+-                    GC_MARK_JSVALS(cx, nslots, fp->argv, "arg");
++                    GC_MARK_JSVALS(cx, nslots + 2, fp->argv - 2, "arg");
+                 }
+                 if (JSVAL_IS_GCTHING(fp->rval))
+                     GC_MARK(cx, JSVAL_TO_GCTHING(fp->rval), "rval", NULL);
+                 if (fp->vars)
+                     GC_MARK_JSVALS(cx, fp->nvars, fp->vars, "var");
+                 GC_MARK(cx, fp->scopeChain, "scope chain", NULL);
+                 if (fp->sharpArray)
+                     GC_MARK(cx, fp->sharpArray, "sharp array", NULL);

@@ -1,0 +1,42 @@
+---
+ js/src/jsopcode.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+Index: mozilla/js/src/jsopcode.c
+===================================================================
+--- mozilla.orig/js/src/jsopcode.c	2007-10-11 13:38:41.000000000 +0200
++++ mozilla/js/src/jsopcode.c	2007-10-11 13:38:52.000000000 +0200
+@@ -351,25 +351,29 @@
+ 
+ #define OFF2STR(sp,off) ((sp)->base + (off))
+ #define STR2OFF(sp,str) ((str) - (sp)->base)
+ #define RETRACT(sp,str) ((sp)->offset = STR2OFF(sp, str))
+ 
+ static JSBool
+ SprintAlloc(Sprinter *sp, size_t nb)
+ {
+-    if (!sp->base) {
+-        JS_ARENA_ALLOCATE_CAST(sp->base, char *, sp->pool, nb);
++    char *base;
++
++    base = sp->base;
++    if (!base) {
++        JS_ARENA_ALLOCATE_CAST(base, char *, sp->pool, nb);
+     } else {
+-        JS_ARENA_GROW_CAST(sp->base, char *, sp->pool, sp->size, nb);
++        JS_ARENA_GROW_CAST(base, char *, sp->pool, sp->size, nb);
+     }
+-    if (!sp->base) {
++    if (!base) {
+         JS_ReportOutOfMemory(sp->context);
+         return JS_FALSE;
+     }
++    sp->base = base;
+     sp->size += nb;
+     return JS_TRUE;
+ }
+ 
+ static ptrdiff_t
+ SprintPut(Sprinter *sp, const char *s, size_t len)
+ {
+     ptrdiff_t nb, offset;

@@ -1,0 +1,73 @@
+---
+ layout/svg/base/src/nsSVGImageFrame.cpp |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+Index: mozilla/layout/svg/base/src/nsSVGImageFrame.cpp
+===================================================================
+--- mozilla.orig/layout/svg/base/src/nsSVGImageFrame.cpp	2007-10-09 17:42:44.000000000 +0200
++++ mozilla/layout/svg/base/src/nsSVGImageFrame.cpp	2007-10-09 17:43:02.000000000 +0200
+@@ -285,17 +285,17 @@
+ 
+   mX->GetValue(&x);
+   mY->GetValue(&y);
+   mWidth->GetValue(&width);
+   mHeight->GetValue(&height);
+ 
+   /* In a perfect world, this would be handled by the DOM, and 
+      return a DOM exception. */
+-  if (width == 0 || height == 0)
++  if (width <= 0 || height <= 0)
+     return NS_OK;
+ 
+   pathBuilder->Moveto(x, y);
+   pathBuilder->Lineto(x+width, y);
+   pathBuilder->Lineto(x+width, y+height);
+   pathBuilder->Lineto(x, y+height);
+   pathBuilder->ClosePath(&x, &y);
+ 
+@@ -305,16 +305,22 @@
+ //----------------------------------------------------------------------
+ // nsISVGChildFrame methods:
+ NS_IMETHODIMP
+ nsSVGImageFrame::PaintSVG(nsISVGRendererCanvas* canvas, const nsRect& dirtyRectTwips)
+ {
+   if (!GetStyleVisibility()->IsVisible())
+     return NS_OK;
+ 
++  float width, height;
++  mWidth->GetValue(&width);
++  mHeight->GetValue(&height);
++  if (width <= 0 || height <= 0)
++    return NS_OK;
++
+   if (mSurfaceInvalid) {
+     nsCOMPtr<imgIRequest> currentRequest;
+     nsCOMPtr<nsIImageLoadingContent> imageLoader = do_QueryInterface(mContent);
+     if (imageLoader)
+       imageLoader->GetRequest(nsIImageLoadingContent::CURRENT_REQUEST,
+                               getter_AddRefs(currentRequest));
+ 
+     nsCOMPtr<imgIContainer> currentContainer;
+@@ -348,21 +354,19 @@
+       clip->ClipPaint(canvas, this, matrix);
+     }
+   }
+ 
+   if (mSurface) {
+     nsCOMPtr<nsIDOMSVGMatrix> ctm;
+     GetCanvasTM(getter_AddRefs(ctm));
+ 
+-    float x, y, width, height;
++    float x, y;
+     mX->GetValue(&x);
+     mY->GetValue(&y);
+-    mWidth->GetValue(&width);
+-    mHeight->GetValue(&height);
+ 
+     if (GetStyleDisplay()->IsScrollableOverflow())
+       canvas->SetClipRect(ctm, x, y, width, height);
+ 
+     PRUint32 nativeWidth, nativeHeight;
+     mSurface->GetWidth(&nativeWidth);
+     mSurface->GetHeight(&nativeHeight);
+ 
