@@ -1,10 +1,8 @@
---- mozilla/xpinstall/packager/packages-unix.nsprpack	2007-02-07 04:21:44.000000000 +0100
-+++ mozilla/xpinstall/packager/packages-unix	2007-02-07 04:29:55.000000000 +0100
-@@ -42,12 +42,8 @@
- bin/defaults/messenger/SpamCatcher.sfd
- bin/defaults/messenger/SpamPal.sfd
+diff -up ./xpinstall/packager/packages-unix.nsprpack ./xpinstall/packager/packages-unix
+--- ./xpinstall/packager/packages-unix.nsprpack	2007-10-19 07:27:07.000000000 +0200
++++ ./xpinstall/packager/packages-unix	2007-10-19 07:27:45.000000000 +0200
+@@ -42,9 +42,6 @@ bin/isp/SpamPal.sfd
  
--
  [xpcom]
  bin/libmozjs.so
 -bin/libnspr4.so
@@ -13,7 +11,7 @@
  bin/cpu/sparcv8plus/libnspr_flt4.so
  bin/libxpcom.so
  bin/libxpcom_core.so
-@@ -58,6 +54,11 @@
+@@ -55,6 +52,11 @@ bin/components/libjar50.so
  bin/libxpcom_compat.so
  bin/components/libxpcom_compat_c.so
  
@@ -25,7 +23,7 @@
  [browser]
  bin/seamonkey
  bin/seamonkey-bin
-@@ -469,13 +470,17 @@
+@@ -465,13 +467,17 @@ bin/components/qfaservices.xpt
  bin/components/talkback/*
  
  [psm]
@@ -44,7 +42,7 @@
  bin/libnss3.so
  bin/libsmime3.so
  bin/libsoftokn3.chk
-@@ -493,8 +498,6 @@
+@@ -489,8 +495,6 @@ bin/libfreebl_64fpu_3.so
  bin/libfreebl_64int_3.chk
  bin/libfreebl_64int_3.so
  bin/libssl3.so
