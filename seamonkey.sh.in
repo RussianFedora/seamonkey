@@ -123,6 +123,14 @@ function open_compose() {
 
 # OK, here's where all the real work gets done
 
+##
+## Check wrapped plugins
+##
+if [ -x "/usr/bin/mozilla-plugin-config" ]
+then
+  /usr/bin/mozilla-plugin-config
+fi
+
 # check to see if there's an already running instance or not
 ALREADY_RUNNING=`check_running`
 
