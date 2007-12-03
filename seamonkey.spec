@@ -1,8 +1,8 @@
 %define desktop_file_utils_version 0.9
 %define cairo_version 0.5
 
-%define minimum_build_nspr_version 4.6.1
-%define minimum_build_nss_version 3.11.1
+%define minimum_build_nspr_version 4.6.99
+%define minimum_build_nss_version 3.11.99
 
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/mozilla
@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.7
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -81,21 +81,21 @@ Obsoletes: seamonkey-mail
 
 PreReq:         desktop-file-utils >= %{desktop_file_utils_version}
 
-%global nspr_build_time_version %(nspr-config --version)
+#%global nspr_build_time_version %(nspr-config --version)
 
-%if "%{?nspr_build_time_version}" > "0"
-Requires: nspr >= %{nspr_build_time_version}
-%else
+#%if "%{?nspr_build_time_version}" > "0"
+#Requires: nspr >= %{nspr_build_time_version}
+#%else
 Requires: nspr >= %{minimum_build_nspr_version}
-%endif
+#%endif
 
-%global nss_build_time_version %(nss-config --version)
+#%global nss_build_time_version %(nss-config --version)
 
-%if "%{?nss_build_time_version}" > "0"
-Requires: nss >= %{nss_build_time_version}
-%else
+#%if "%{?nss_build_time_version}" > "0"
+#Requires: nss >= %{nss_build_time_version}
+#%else
 Requires: nss >= %{minimum_build_nss_version}
-%endif
+#%endif
 
 
 AutoProv: 0
@@ -429,6 +429,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Mon Dec 03 2007 Kai Engert <kengert@redhat.com> - 1.1.7-3
+- fix dependencies, requires nspr 4.6.99 / nss 3.11.99
 * Sun Dec 02 2007 Kai Engert <kengert@redhat.com> - 1.1.7-2
 - SeaMonkey 1.1.7
 * Mon Nov 05 2007 Kai Engert <kengert@redhat.com> - 1.1.6-2
