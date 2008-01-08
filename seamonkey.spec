@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.7
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -309,6 +309,9 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 # place that plugins can be installed
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_libdir}/mozilla/plugins
 
+# Default profile dir for /etc/skel
+%{__mkdir_p} $RPM_BUILD_ROOT/%{_sysconfdir}/skel/.mozilla
+
 # ghost files
 touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
 for overlay in {"browser","communicator","cookie","editor","global","inspector","messenger","navigator"}; do
@@ -349,6 +352,7 @@ update-desktop-database %{_datadir}/applications
 %{_mandir}/man1/seamonkey.1.gz
 
 %dir %{_libdir}/mozilla/plugins
+%{_sysconfdir}/skel/.mozilla
 
 %dir %{mozdir}
 %dir %{mozdir}/init.d
@@ -429,6 +433,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Mon Jan 07 2008 Kai Engert <kengert@redhat.com> - 1.1.7-4
+- Create and own /etc/skel/.mozilla
 * Mon Dec 03 2007 Kai Engert <kengert@redhat.com> - 1.1.7-3
 - fix dependencies, requires nspr 4.6.99 / nss 3.11.99
 * Sun Dec 02 2007 Kai Engert <kengert@redhat.com> - 1.1.7-2
