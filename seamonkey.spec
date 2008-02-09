@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.8
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -49,6 +49,7 @@ Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
+Patch305:       bug399589.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -132,6 +133,7 @@ application formerly known as Mozilla Application Suite.
 %patch225 -p1
 %patch301 -p1
 %patch304 -p0
+%patch305 -p1
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -433,6 +435,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Feb 09 2008 Kai Engert <kengert@redhat.com> - 1.1.8-2
+- make it build with nss 3.12, mozilla bug 399589
+- work around an issue with gcc 4.3.0, redhat bug 432138
 * Fri Feb 08 2008 Kai Engert <kengert@redhat.com> - 1.1.8-2
 - SeaMonkey 1.1.8
 * Mon Jan 07 2008 Kai Engert <kengert@redhat.com> - 1.1.7-4
