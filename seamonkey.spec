@@ -435,7 +435,7 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
-* Fri Feb 09 2008 Kai Engert <kengert@redhat.com> - 1.1.8-2
+* Sat Feb 09 2008 Kai Engert <kengert@redhat.com> - 1.1.8-3
 - make it build with nss 3.12, mozilla bug 399589
 - work around an issue with gcc 4.3.0, redhat bug 432138
 * Fri Feb 08 2008 Kai Engert <kengert@redhat.com> - 1.1.8-2
