@@ -20,9 +20,6 @@ ac_add_options --enable-extensions=default,irc
 ac_add_options --enable-application=suite
 ac_add_options --enable-crypto
 
-#bug 432138
-ac_cv_visibility_pragma=no
-
 export BUILD_OFFICIAL=1
 export MOZILLA_OFFICIAL=1
 mk_add_options BUILD_OFFICIAL=1
