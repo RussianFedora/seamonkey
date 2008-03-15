@@ -1,3 +1,4 @@
+%define default_bookmarks_file %{_datadir}/bookmarks/default-bookmarks.html
 %define desktop_file_utils_version 0.9
 %define cairo_version 0.5
 
@@ -11,7 +12,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.8
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -26,7 +27,6 @@ Source12:       seamonkey-mail.desktop
 Source13:       seamonkey-mail-icon.png
 Source17:       mozilla-psm-exclude-list
 Source18:       mozilla-xpcom-exclude-list
-Source19:       seamonkey-fedora-default-bookmarks.html
 Source20:       seamonkey-fedora-default-prefs.js
 Source100:      find-external-requires
 
@@ -74,6 +74,8 @@ BuildRequires:  libXt-devel
 BuildRequires:  libXrender-devel
 BuildRequires:  fileutils
 BuildRequires:  perl
+BuildRequires:  system-bookmarks
+Requires:       system-bookmarks
 
 Obsoletes: seamonkey-chat
 Obsoletes: seamonkey-devel
@@ -140,10 +142,6 @@ cd mozilla
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
-
-# set up our default bookmarks
-%{__cp} %{SOURCE19} $RPM_BUILD_DIR/mozilla/profile/defaults/bookmarks.html
-
 
 %build
 cd mozilla
@@ -312,6 +310,10 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 %{__cp} $RPM_BUILD_ROOT/fc-default-prefs $RPM_BUILD_ROOT/%{mozdir}/defaults/pref/all-fedora.js
 %{__rm} $RPM_BUILD_ROOT/fc-default-prefs
 
+# set up our default bookmarks
+%{__rm} -f $RPM_BUILD_ROOT/%{mozappdir}/defaults/profile/bookmarks.html
+ln -s %{default_bookmarks_file} $RPM_BUILD_ROOT/%{mozappdir}/defaults/profile/bookmarks.html
+
 # we use /usr/lib/mozilla/plugins which is the version-independent
 # place that plugins can be installed
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_libdir}/mozilla/plugins
@@ -440,6 +442,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Sat Mar 15 2008 Christopher Aillon <caillon@redhat.com> - 1.1.8-6
+- Use the Fedora system bookmarks as default
 * Sat Mar 15 2008 Christopher Aillon <caillon@redhat.com> - 1.1.8-5
 - Avoid conflicts between gecko debuginfo packages
 * Thu Feb 14 2008 Kai Engert <kengert@redhat.com> - 1.1.8-4
