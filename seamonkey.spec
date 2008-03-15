@@ -189,59 +189,59 @@ echo %defattr\(-,root,root\) > %{builddir}/seamonkey.list
 # build all of the default browser components
 # base Seamonkey package (seamonkey.list)
 %{SOURCE7} --package langenus --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package regus --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package deflenus --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package xpcom --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir} \
     --exclude-file=%{SOURCE18}
 
 %{SOURCE7} --package browser --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package spellcheck --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package psm --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir} \
     --exclude-file=%{SOURCE17}
 
 %{SOURCE7} --package mail --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package chatzilla --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package venkman --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package inspector --output-file %{builddir}/seamonkey.list \
-    --package-file $RPM_BUILD_DIR/mozilla/xpinstall/packager/packages-unix \
+    --package-file xpinstall/packager/packages-unix \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
@@ -311,8 +311,8 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 %{__rm} $RPM_BUILD_ROOT/fc-default-prefs
 
 # set up our default bookmarks
-%{__rm} -f $RPM_BUILD_ROOT/%{mozappdir}/defaults/profile/bookmarks.html
-ln -s %{default_bookmarks_file} $RPM_BUILD_ROOT/%{mozappdir}/defaults/profile/bookmarks.html
+%{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
+ln -s %{default_bookmarks_file} $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 
 # we use /usr/lib/mozilla/plugins which is the version-independent
 # place that plugins can be installed
