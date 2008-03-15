@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.8
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -114,7 +114,8 @@ application formerly known as Mozilla Application Suite.
 
 %prep
 
-%setup -q -n mozilla
+%setup -q -c
+cd mozilla
 %patch1  -p0
 %patch2  -p1
 %patch21 -p1
@@ -145,6 +146,7 @@ application formerly known as Mozilla Application Suite.
 
 
 %build
+cd mozilla
 
 XCFLAGS=-g \
 CFLAGS=-g \
@@ -163,6 +165,7 @@ BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make %{?_smp_mflags} libs
 
 %install
 %{__rm} -rf $RPM_BUILD_ROOT
+cd mozilla
 
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
 	DESTDIR=$RPM_BUILD_ROOT \
@@ -437,6 +440,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Sat Mar 15 2008 Christopher Aillon <caillon@redhat.com> - 1.1.8-5
+- Avoid conflicts between gecko debuginfo packages
 * Thu Feb 14 2008 Kai Engert <kengert@redhat.com> - 1.1.8-4
 - remove workaround for 432138, use upstream patch
 * Sat Feb 09 2008 Kai Engert <kengert@redhat.com> - 1.1.8-3
