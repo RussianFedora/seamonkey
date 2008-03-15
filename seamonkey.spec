@@ -6,7 +6,7 @@
 %define minimum_build_nss_version 3.11.99
 
 %define _unpackaged_files_terminate_build 0
-%define builddir %{_builddir}/mozilla
+%define builddir %{_builddir}/%{name}-%{version}
 %define mozdir %{_libdir}/seamonkey-%{version}
 
 Name:           seamonkey
