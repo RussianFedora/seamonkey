@@ -11,8 +11,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.8
-Release:        6%{?dist}
+Version:        1.1.9
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -49,8 +49,6 @@ Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
-Patch305:       bug399589.patch
-Patch306:       bug416463.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -137,8 +135,6 @@ cd mozilla
 %patch225 -p1
 %patch301 -p1
 %patch304 -p0
-%patch305 -p1
-%patch306 -p0
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -442,6 +438,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Mar 28 2008 Kai Engert <kengert@redhat.com> - 1.1.9-2
+- SeaMonkey 1.1.9
 * Sat Mar 15 2008 Christopher Aillon <caillon@redhat.com> - 1.1.8-6
 - Use the Fedora system bookmarks as default
 * Sat Mar 15 2008 Christopher Aillon <caillon@redhat.com> - 1.1.8-5
