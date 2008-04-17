@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.9
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -32,6 +32,7 @@ Source100:      find-external-requires
 
 Patch1:         firefox-1.0-prdtoa.patch
 Patch2:         firefox-2.0-link-layout.patch
+Patch3:         seamonkey-1.1.9plus.patch
 Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
 Patch22:        firefox-0.7.3-psfonts.patch
 Patch41:        firefox-2.0.0.4-undo-uriloader.patch
@@ -115,6 +116,7 @@ application formerly known as Mozilla Application Suite.
 %setup -q -n mozilla
 %patch1  -p0
 %patch2  -p1
+%patch3  -p1
 %patch21 -p1
 %patch22 -p1
 %patch41 -p1
@@ -429,6 +431,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Apr 17 2008 Kai Engert <kengert@redhat.com> - 1.1.9-2
+- add several upstream patches, not yet released:
+  425576 (crash), 323508, 378132, 390295, 421622
 * Fri Mar 28 2008 Kai Engert <kengert@redhat.com> - 1.1.9-1
 - SeaMonkey 1.1.9
 * Fri Feb 08 2008 Kai Engert <kengert@redhat.com> - 1.1.8-1
