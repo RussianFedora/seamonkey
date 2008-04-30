@@ -12,7 +12,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.9
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -75,6 +75,7 @@ BuildRequires:  fileutils
 BuildRequires:  perl
 BuildRequires:  system-bookmarks
 Requires:       system-bookmarks
+Requires:       mozilla-filesystem
 
 Obsoletes: seamonkey-chat
 Obsoletes: seamonkey-devel
@@ -312,13 +313,6 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 ln -s %{default_bookmarks_file} $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 
-# we use /usr/lib/mozilla/plugins which is the version-independent
-# place that plugins can be installed
-%{__mkdir_p} $RPM_BUILD_ROOT/%{_libdir}/mozilla/plugins
-
-# Default profile dir for /etc/skel
-%{__mkdir_p} $RPM_BUILD_ROOT/%{_sysconfdir}/skel/.mozilla
-
 # ghost files
 touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
 for overlay in {"browser","communicator","cookie","editor","global","inspector","messenger","navigator"}; do
@@ -356,10 +350,7 @@ update-desktop-database %{_datadir}/applications
 %ghost %{mozdir}/components/compreg.dat
 %ghost %{mozdir}/components/xpti.dat
 
-%{_mandir}/man1/seamonkey.1.gz
-
-%dir %{_libdir}/mozilla/plugins
-%{_sysconfdir}/skel/.mozilla
+%doc %{_mandir}/man1/seamonkey.1.gz
 
 %dir %{mozdir}
 %dir %{mozdir}/init.d
@@ -440,6 +431,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Apr 30 2008 Christopher Aillon <caillon@redhat.com> - 1.1.9-4
+- Require mozilla-filesystem and drop its requires
 * Thu Apr 17 2008 Kai Engert <kengert@redhat.com> - 1.1.9-3
 - add several upstream patches, not yet released:
   425576 (crash), 323508, 378132, 390295, 421622
