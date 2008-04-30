@@ -75,6 +75,7 @@ BuildRequires:  fileutils
 BuildRequires:  perl
 BuildRequires:  system-bookmarks
 Requires:       system-bookmarks
+Requires:       mozilla-filesystem
 
 Obsoletes: seamonkey-chat
 Obsoletes: seamonkey-devel
