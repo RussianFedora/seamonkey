@@ -10,8 +10,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.9
-Release:        2%{?dist}
+Version:        1.1.10
+Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -45,6 +45,7 @@ Patch86:        firefox-1.5-pango-cursor-position-more.patch
 Patch87:        firefox-1.5-pango-justified-range.patch
 Patch88:        firefox-1.5-pango-underline.patch
 Patch91:        thunderbird-0.7.3-gnome-uriloader.patch
+Patch100:       firefox-1.5-bullet-bill.patch
 Patch102:       firefox-1.5-theme-change.patch
 Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
@@ -116,7 +117,7 @@ application formerly known as Mozilla Application Suite.
 %setup -q -n mozilla
 %patch1  -p0
 %patch2  -p1
-%patch3  -p1
+#%patch3  -p1
 %patch21 -p1
 %patch22 -p1
 %patch41 -p1
@@ -129,6 +130,7 @@ application formerly known as Mozilla Application Suite.
 %patch87 -p1
 %patch88 -p1
 %patch91 -p1 -b .gnome-uriloader
+%patch100 -p1 -b .bullet-bill
 %patch102 -p0 -b .theme-change
 %patch220 -p1
 %patch225 -p1
@@ -431,6 +433,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Tue Jul 08 2008 Christopher Aillon <caillon@redhat.com> - 1.1.10-1
+- Update to 1.1.10
+- Use bullet characters to match GTK+
 * Thu Apr 17 2008 Kai Engert <kengert@redhat.com> - 1.1.9-2
 - add several upstream patches, not yet released:
   425576 (crash), 323508, 378132, 390295, 421622
