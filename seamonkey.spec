@@ -11,7 +11,7 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.10
+Version:        1.1.12
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
@@ -122,7 +122,6 @@ cd mozilla
 %patch1  -p0
 %patch2  -p1
 #%patch3  -p1
-%patch21 -p1
 %patch22 -p1
 %patch41 -p1
 %patch42 -p0
@@ -433,6 +432,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Sep 25 2008 Christopher Aillon <caillon@redhat.com> - 1.1.12-1
+- Update to 1.1.12
+
 * Sat Jul  6 2008 Christopher Aillon <caillon@redhat.com> - 1.1.10-1
 - Update to 1.1.10
 - Use bullet characters to match GTK+

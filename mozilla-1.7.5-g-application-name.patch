@@ -1,13 +1,13 @@
 Index: xpfe/bootstrap/nsAppRunner.cpp
 ===================================================================
-RCS file: /cvsroot/mozilla/xpfe/bootstrap/nsAppRunner.cpp,v
-retrieving revision 1.428
-diff -d -u -p -r1.428 nsAppRunner.cpp
---- xpfe/bootstrap/nsAppRunner.cpp	20 Dec 2004 21:53:33 -0000	1.428
-+++ xpfe/bootstrap/nsAppRunner.cpp	5 Mar 2005 08:39:12 -0000
-@@ -1612,6 +1612,11 @@ static PRBool GetWantSplashScreen(int ar
-   return dosplash;
- }
+RCS file: /cvsroot/mozilla/xpfe/bootstrap/Attic/nsAppRunner.cpp,v
+retrieving revision 1.442.2.12
+diff -d -u -p -r1.442.2.12 nsAppRunner.cpp
+--- xpfe/bootstrap/nsAppRunner.cpp	31 Dec 2007 22:37:36 -0000	1.442.2.12
++++ xpfe/bootstrap/nsAppRunner.cpp	8 Oct 2008 17:55:53 -0000
+@@ -1573,6 +1573,11 @@ public:
+ };
+ #endif
  
 +#ifdef MOZ_WIDGET_GTK2
 +#include "prlink.h"
@@ -16,8 +16,8 @@ diff -d -u -p -r1.428 nsAppRunner.cpp
 +
  int main(int argc, char* argv[])
  {
-   NS_TIMELINE_MARK("enter main");
-@@ -1712,6 +1717,19 @@ int main(int argc, char* argv[])
+ #ifdef XP_WIN32
+@@ -1685,6 +1690,19 @@ int main(int argc, char* argv[])
  #endif
    gtk_init(&argc, &argv);
  
