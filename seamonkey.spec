@@ -2,8 +2,8 @@
 %define desktop_file_utils_version 0.9
 %define cairo_version 0.5
 
-%define minimum_build_nspr_version 4.6.99
-%define minimum_build_nss_version 3.11.99
+%define minimum_build_nspr_version 4.7.2
+%define minimum_build_nss_version 3.12
 
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/%{name}-%{version}
@@ -11,7 +11,7 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.12
+Version:        1.1.13
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
@@ -432,6 +432,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Nov 12 2008 Christopher Aillon <caillon@redhat.com> - 1.1.13-1
+- Update to 1.1.13
+
 * Thu Sep 25 2008 Christopher Aillon <caillon@redhat.com> - 1.1.12-1
 - Update to 1.1.12
 
