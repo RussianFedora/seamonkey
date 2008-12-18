@@ -10,7 +10,7 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.13
+Version:        1.1.14
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
@@ -433,12 +433,12 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Dec 17 2008 Kai Engert <kengert@redhat.com> - 1.1.14-1
+- Update to 1.1.14
 * Wed Nov 13 2008 Christopher Aillon <caillon@redhat.com> - 1.1.13-1
 - Update to 1.1.13
-
 * Thu Sep 25 2008 Christopher Aillon <caillon@redhat.com> - 1.1.12-1
 - Update to 1.1.12
-
 * Tue Jul 15 2008 Christopher Aillon <caillon@redhat.com> - 1.1.11-1
 - Update to 1.1.11
 * Tue Jul 08 2008 Christopher Aillon <caillon@redhat.com> - 1.1.10-1
