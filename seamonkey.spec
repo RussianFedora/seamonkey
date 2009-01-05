@@ -12,7 +12,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.14
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -156,7 +156,12 @@ CXXFLAGS=-g \
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
 ./configure --prefix=%{_prefix} --libdir=%{_libdir} \
 --with-default-mozilla-five-home=%{mozdir} \
---mandir=%{_mandir}
+--mandir=%{_mandir} \
+%ifarch i386
+--enable-optimize="$RPM_OPT_FLAGS"" -O0" \
+%else
+--enable-optimize="$RPM_OPT_FLAGS" \
+%endif
 
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make export
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make %{?_smp_mflags} libs
@@ -432,6 +437,8 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Mon Jan 5 2009 Martin Stransky <stransky@redhat.com> 1.1.14-2
+- disabled -O2 optimalization for i386 as a workaround for #468415
 * Wed Dec 17 2008 Kai Engert <kengert@redhat.com> - 1.1.14-1
 - Update to 1.1.14
 * Wed Nov 12 2008 Christopher Aillon <caillon@redhat.com> - 1.1.13-1
