@@ -12,7 +12,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.14
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -437,6 +437,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Jan 07 2009 Christopher Aillon <caillon@redhat.com> - 1.1.14-3
+- Disable the crash dialog
+
 * Mon Jan 5 2009 Martin Stransky <stransky@redhat.com> 1.1.14-2
 - disabled -O2 optimalization for i386 as a workaround for #468415
 * Wed Dec 17 2008 Kai Engert <kengert@redhat.com> - 1.1.14-1

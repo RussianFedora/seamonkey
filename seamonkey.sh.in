@@ -91,6 +91,12 @@ export MOZ_PLUGIN_PATH
 #MOZ_DISABLE_PANGO=1
 #export MOZ_DISABLE_PANGO
 
+##
+## Disable the GNOME crash dialog, Moz has it's own
+## 
+GNOME_DISABLE_CRASH_DIALOG=1
+export GNOME_DISABLE_CRASH_DIALOG
+
 function check_running() {
     $MOZ_CLIENT_PROGRAM 'ping()' 2>/dev/null >/dev/null
     RETURN_VAL=$?
