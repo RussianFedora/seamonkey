@@ -12,7 +12,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.14
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -146,6 +146,10 @@ cd mozilla
 %build
 cd mozilla
 
+# Set up build flags (#468415)
+OPT_FLAGS="$RPM_OPT_FLAGS"
+OPT_FLAGS+=" -fno-strict-aliasing"
+
 XCFLAGS=-g \
 CFLAGS=-g \
 %ifarch ia64 ppc
@@ -157,11 +161,7 @@ BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
 ./configure --prefix=%{_prefix} --libdir=%{_libdir} \
 --with-default-mozilla-five-home=%{mozdir} \
 --mandir=%{_mandir} \
-%ifarch i386
---enable-optimize="$RPM_OPT_FLAGS"" -O0" \
-%else
---enable-optimize="$RPM_OPT_FLAGS" \
-%endif
+--enable-optimize="$OPT_FLAGS"
 
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make export
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make %{?_smp_mflags} libs
@@ -437,6 +437,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Mon Jan 8 2009 Martin Stransky <stransky@redhat.com> 1.1.14-4
+- build with -fno-strict-aliasing (#468415)
+
 * Wed Jan 07 2009 Christopher Aillon <caillon@redhat.com> - 1.1.14-3
 - Disable the crash dialog
 
