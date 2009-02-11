@@ -1,5 +1,4 @@
 %define default_bookmarks_file %{_datadir}/bookmarks/default-bookmarks.html
-%define desktop_file_utils_version 0.9
 %define cairo_version 0.5
 
 %define minimum_build_nspr_version 4.7.2
@@ -12,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.14
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -61,7 +60,7 @@ BuildRequires:  libjpeg-devel
 BuildRequires:  zlib-devel
 BuildRequires:  zip
 BuildRequires:  libIDL-devel
-BuildRequires:  desktop-file-utils >= %{desktop_file_utils_version}
+BuildRequires:  desktop-file-utils
 BuildRequires:  gtk2-devel
 BuildRequires:  gnome-vfs2-devel
 BuildRequires:  libgnome-devel
@@ -83,8 +82,6 @@ Obsoletes: seamonkey-devel
 Obsoletes: seamonkey-dom-inspector
 Obsoletes: seamonkey-js-debugger
 Obsoletes: seamonkey-mail
-
-PreReq:         desktop-file-utils >= %{desktop_file_utils_version}
 
 #%global nspr_build_time_version %(nspr-config --version)
 
@@ -435,6 +432,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Feb 11 2009 Christopher Aillon <caillon@redhat.com> - 1.1.14-3
+- Drop explicit requirement on desktop-file-utils
+
 * Wed Jan 07 2009 Christopher Aillon <caillon@redhat.com> - 1.1.14-2
 - Disable the crash dialog
 
