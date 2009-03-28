@@ -3,7 +3,7 @@
 @@ -1,5 +1,5 @@
  # navigator.properties
 -homePageDefault=http://www.mozilla.org/
-+homePageDefault=file:///usr/share/doc/HTML/index.html
++homePageDefault=http://start.fedoraproject.org/
  keywordList=http://home.netscape.com/escapes/keywords
  webmailKeyword=http://webmail.netscape.com
  fallbackDefaultSearchURL=http://www.google.com/search?q=
@@ -12,7 +12,7 @@
  # all.js
  #
 -browser.startup.homepage=http://www.seamonkey-project.org/start/
-+browser.startup.homepage=file:///usr/share/doc/HTML/index.html
++browser.startup.homepage=http://start.fedoraproject.org/
  browser.throbber.url=http://www.seamonkey-project.org/
  browser.search.defaulturl=http://www.google.com/search?q=
  general.useragent.contentlocale=US
@@ -21,4 +21,4 @@
  #config.js
  #
 -startup.homepage_override_url=http://www.seamonkey-project.org/start/
-+startup.homepage_override_url=file:///usr/share/doc/HTML/index.html
++startup.homepage_override_url=http://start.fedoraproject.org/
