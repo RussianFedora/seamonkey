@@ -10,8 +10,8 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.14
-Release:        4%{?dist}
+Version:        1.1.15
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -50,6 +50,9 @@ Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
+
+Patch200912:    mfsa-2009-12.patch
+Patch200913:    mfsa-2009-13.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -136,6 +139,9 @@ cd mozilla
 %patch225 -p1
 %patch301 -p1
 %patch304 -p0
+
+%patch200912 -p1 -b .mfsa-2009-12
+%patch200913 -p1 -b .mfsa-2009-13
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -432,6 +438,15 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Fri Mar 27 2009 Christopher Aillon <caillon@redhat.com> - 1.15.1-3
+- Add patches for MFSA-2009-12, MFSA-2009-13
+
+* Wed Mar 25 2009 Christopher Aillon <caillon@redhat.com> - 1.15.1-2
+- Update default homepage
+
+* Wed Mar  4 2009 Fedora Security Response Team <fedora-security-list@redhat.com> - 1.1.15-1
+- Update to 1.1.15
+
 * Wed Feb 25 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1.14-4
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_11_Mass_Rebuild
 
