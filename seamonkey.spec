@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.15
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -156,6 +156,10 @@ CXXFLAGS="-fno-inline -g" \
 %else
 CXXFLAGS=-g \
 %endif
+
+#Set up build flags (#468415)
+RPM_OPT_FLAGS+=" -fno-strict-aliasing"
+
 BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
 ./configure --prefix=%{_prefix} --libdir=%{_libdir} \
 --with-default-mozilla-five-home=%{mozdir} \
@@ -438,6 +442,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed May 6 2009 Martin Stransky <stransky@redhat.com> 1.1.15-4
+- build with -fno-strict-aliasing (#468415)
+
 * Fri Mar 27 2009 Christopher Aillon <caillon@redhat.com> - 1.15.1-3
 - Add patches for MFSA-2009-12, MFSA-2009-13
 
