@@ -11,7 +11,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        1.1.16
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -436,6 +436,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Jun 18 2009 Kai Engert <kaie@redhat.com> 1.1.16-3
+- fix categories in desktop files
+
 * Wed May 7 2009 Kai Engert <kaie@redhat.com> 1.1.16-2
 - Update to 1.1.16
 

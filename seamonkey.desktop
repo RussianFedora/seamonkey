@@ -7,6 +7,6 @@ Icon=seamonkey-icon
 Terminal=0
 Type=Application
 MimeType=text/html;text/xml;application/xhtml+xml;application/vnd.mozilla.xul+xml;text/mml;
-Categories=Network;Application;X-Fedora;
+Categories=Network;WebBrowser;
 X-Desktop-File-Install-Version=0.10
 
