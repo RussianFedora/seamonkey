@@ -6,4 +6,4 @@ Exec=/usr/bin/seamonkey -mail
 Icon=seamonkey-mail-icon
 Terminal=0
 Type=Application
-Categories=X-Red-Hat-Extra;Application;Network;
+Categories=Network;Email;
