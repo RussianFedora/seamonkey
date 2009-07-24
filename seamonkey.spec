@@ -1,3 +1,4 @@
+%define homepage http://start.fedoraproject.org/
 %define default_bookmarks_file %{_datadir}/bookmarks/default-bookmarks.html
 %define cairo_version 0.5
 
@@ -5,6 +6,8 @@
 %define minimum_build_nss_version 3.12
 
 %define prerelease_tag b1
+
+%define build_langpacks 1
 
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/%{name}-%{version}
@@ -21,6 +24,7 @@ License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}-source.tar.bz2
+Source1:        seamonkey-langpacks-%{version}%{?prerelease_tag}-20090724.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -188,6 +192,41 @@ install -c -m 644 mozilla/dist/bin/components/*.xpt \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
+echo > ../%{name}.lang
+%if %{build_langpacks}
+# Install langpacks 
+%{__mkdir_p} $RPM_BUILD_ROOT/%{mozdir}/extensions
+%{__tar} xjf %{SOURCE1}
+for langpack in `ls seamonkey-langpacks/*.xpi`; do
+  language=`basename $langpack .xpi`
+  extensiondir=$RPM_BUILD_ROOT/%{mozdir}/extensions/langpack-$language@seamonkey.mozilla.org
+  %{__mkdir_p} $extensiondir
+  unzip $langpack -d $extensiondir
+  find $extensiondir -type f | xargs chmod 644
+
+  tmpdir=`mktemp -d %{name}.XXXXXXXX`
+  langtmp=$tmpdir/%{name}/langpack-$language
+  %{__mkdir_p} $langtmp
+  jarfile=$extensiondir/chrome/$language.jar
+  unzip $jarfile -d $langtmp
+
+  sed -i -e "s|browser.startup.homepage.*$|browser.startup.homepage=%{homepage}|g;" \
+         $langtmp/locale/$language/navigator-region/region.properties
+
+  find $langtmp -type f | xargs chmod 644
+  %{__rm} -rf $jarfile
+  cd $langtmp
+  zip -r -D $jarfile locale
+  cd -
+  %{__rm} -rf $tmpdir
+
+  language=`echo $language | sed -e 's/-/_/g'`
+  extensiondir=`echo $extensiondir | sed -e "s,^$RPM_BUILD_ROOT,,"`
+  echo "%%lang($language) $extensiondir" >> ../%{name}.lang
+done
+%{__rm} -rf firefox-langpacks
+%endif # build_langpacks
+
 # set up our desktop files
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_datadir}/pixmaps/
 
@@ -264,6 +303,7 @@ update-desktop-database %{_datadir}/applications
 %{mozdir}/chrome/reporter.manifest
 %{mozdir}/components/*.xpt
 %{mozdir}/defaults/messenger/mailViews.dat
+%{mozdir}/extensions/*
 
 #%doc %{_mandir}/man1/seamonkey.1.gz
 

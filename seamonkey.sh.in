@@ -42,6 +42,7 @@ ulimit -c 0
 MOZ_DIST_BIN="LIBDIR/seamonkey-MOZILLA_VERSION"
 MOZ_PROGRAM="LIBDIR/seamonkey-MOZILLA_VERSION/seamonkey"
 MOZ_CLIENT_PROGRAM="LIBDIR/seamonkey-MOZILLA_VERSION/mozilla-xremote-client -a seamonkey"
+MOZ_EXTENSIONS_DIR="$MOZ_DIST_BIN/extensions"
 
 ##
 ## Set MOZILLA_FIVE_HOME
@@ -140,9 +141,13 @@ fi
 
 # check system locale
 MOZARGS=
-MOZLOCALE=`echo $LANG | sed "s|_\([^.]*\).*|-\1|g"`
-[ -f $MOZILLA_FIVE_HOME/chrome/$MOZLOCALE.jar ] && MOZARGS="-UILocale $MOZLOCALE"
+# Try without a local variant first, then with a local variant
+# So that pt-BR doesn't try to use pt for example
+SHORTMOZLOCALE=`echo $LC_MESSAGES | sed "s|_\([^.]*\).*||g"`
+[ -f $MOZ_EXTENSIONS_DIR/langpack-${SHORTMOZLOCALE}@seamonkey.mozilla.org/chrome/$SHORTMOZLOCALE.jar ] && MOZARGS="-UILocale $SHORTMOZLOCALE"
 
+MOZLOCALE=`echo $LC_MESSAGES | sed "s|_\([^.]*\).*|-\1|g"`
+[ -f $MOZ_EXTENSIONS_DIR/langpack-${MOZLOCALE}@seamonkey.mozilla.org/chrome/$MOZLOCALE.jar ] && MOZARGS="-UILocale $MOZLOCALE"
 
 # if there's no command line argument and there's not a running
 # instance then just fire up a new copy of the browser
