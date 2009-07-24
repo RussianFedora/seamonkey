@@ -40,7 +40,7 @@ ulimit -c 0
 ## Variables
 ##
 MOZ_DIST_BIN="LIBDIR/seamonkey-MOZILLA_VERSION"
-MOZ_PROGRAM="LIBDIR/seamonkey-MOZILLA_VERSION/seamonkey-bin"
+MOZ_PROGRAM="LIBDIR/seamonkey-MOZILLA_VERSION/seamonkey"
 MOZ_CLIENT_PROGRAM="LIBDIR/seamonkey-MOZILLA_VERSION/mozilla-xremote-client -a seamonkey"
 
 ##

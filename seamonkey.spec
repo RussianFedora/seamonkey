@@ -4,19 +4,23 @@
 %define minimum_build_nspr_version 4.7.2
 %define minimum_build_nss_version 3.12
 
+%define prerelease_tag b1
+
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/%{name}-%{version}
-%define mozdir %{_libdir}/seamonkey-%{version}
+%define mozdir %{_libdir}/seamonkey-%{version}%{?prerelease_tag}
+%define sources_subdir comm-central
+
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.17
-Release:        1%{?dist}
+Version:        2.0
+Release:        1.beta1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
-Source0:        seamonkey-%{version}.source.tar.bz2
+Source0:        seamonkey-%{version}%{?prerelease_tag}-source.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -29,27 +33,8 @@ Source18:       mozilla-xpcom-exclude-list
 Source20:       seamonkey-fedora-default-prefs.js
 Source100:      find-external-requires
 
-Patch1:         firefox-1.0-prdtoa.patch
-Patch2:         firefox-2.0-link-layout.patch
-Patch3:         seamonkey-1.1.9plus.patch
-Patch21:        firefox-0.7.3-default-plugin-less-annoying.patch
-Patch22:        firefox-0.7.3-psfonts.patch
-Patch41:        firefox-2.0.0.4-undo-uriloader.patch
-Patch42:        firefox-1.1-uriloader.patch
-Patch81:        firefox-1.5-nopangoxft.patch
-Patch83:        firefox-1.5-pango-cursor-position.patch
-Patch84:        firefox-2.0-pango-printing.patch
-Patch85:        firefox-2.0-pango-ligatures.patch
-Patch86:        firefox-1.5-pango-cursor-position-more.patch
-Patch87:        firefox-1.5-pango-justified-range.patch
-Patch88:        firefox-1.5-pango-underline.patch
-Patch91:        thunderbird-0.7.3-gnome-uriloader.patch
-Patch100:       firefox-1.5-bullet-bill.patch
-Patch102:       firefox-1.5-theme-change.patch
-Patch220:       seamonkey-fedora-home-page.patch
-Patch225:       mozilla-nspr-packages.patch
-Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
-Patch304:       mozilla-1.7.5-g-application-name.patch
+Patch0:         mozilla-jemalloc.patch
+Patch1:         mozilla-191-path.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -76,6 +61,8 @@ BuildRequires:  perl
 BuildRequires:  system-bookmarks
 Requires:       system-bookmarks
 Requires:       mozilla-filesystem
+Requires:       nspr >= %{minimum_build_nspr_version}
+Requires:       nss >= %{minimum_build_nss_version}
 
 Obsoletes: seamonkey-chat
 Obsoletes: seamonkey-devel
@@ -83,21 +70,6 @@ Obsoletes: seamonkey-dom-inspector
 Obsoletes: seamonkey-js-debugger
 Obsoletes: seamonkey-mail
 
-#%global nspr_build_time_version %(nspr-config --version)
-
-#%if "%{?nspr_build_time_version}" > "0"
-#Requires: nspr >= %{nspr_build_time_version}
-#%else
-Requires: nspr >= %{minimum_build_nspr_version}
-#%endif
-
-#%global nss_build_time_version %(nss-config --version)
-
-#%if "%{?nss_build_time_version}" > "0"
-#Requires: nss >= %{nss_build_time_version}
-#%else
-Requires: nss >= %{minimum_build_nss_version}
-#%endif
 
 
 AutoProv: 0
@@ -115,60 +87,40 @@ application formerly known as Mozilla Application Suite.
 %prep
 
 %setup -q -c
-cd mozilla
-%patch1  -p0
-%patch2  -p1
-#%patch3  -p1
-%patch22 -p1
-%patch41 -p1
-%patch42 -p0
-%patch81 -p1
-%patch83 -p1
-%patch84 -p0
-%patch85 -p1
-%patch86 -p1
-%patch87 -p1
-%patch88 -p1
-%patch91 -p1 -b .gnome-uriloader
-%patch100 -p1 -b .bullet-bill
-%patch102 -p0 -b .theme-change
-%patch220 -p1
-%patch225 -p1
-%patch301 -p1
-%patch304 -p0
+cd %{sources_subdir}
+
+%patch0 -p0 -b .jemalloc
+%patch1 -p0 -b .path
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
 
 %build
-cd mozilla
+cd %{sources_subdir}
 
-XCFLAGS=-g \
-CFLAGS=-g \
-%ifarch ia64 ppc
-CXXFLAGS="-fno-inline -g" \
-%else
-CXXFLAGS=-g \
+# Mozilla builds with -Wall with exception of a few warnings which show up 
+# everywhere in the code; so, don't override that. 
+MOZ_OPT_FLAGS=$(echo $RPM_OPT_FLAGS | %{__sed} -e 's/-Wall//')
+export CFLAGS=$MOZ_OPT_FLAGS
+export CXXFLAGS=$MOZ_OPT_FLAGS
+
+export PREFIX='%{_prefix}'
+export LIBDIR='%{_libdir}'
+
+MOZ_SMP_FLAGS=-j1
+%ifnarch ppc ppc64 s390 s390x
+[ -z "$RPM_BUILD_NCPUS" ] && \
+     RPM_BUILD_NCPUS="`/usr/bin/getconf _NPROCESSORS_ONLN`"
+[ "$RPM_BUILD_NCPUS" -gt 1 ] && MOZ_SMP_FLAGS=-j2
 %endif
 
-#Set up build flags (#468415)
-RPM_OPT_FLAGS+=" -fno-strict-aliasing"
-
-BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
-./configure --prefix=%{_prefix} --libdir=%{_libdir} \
---with-default-mozilla-five-home=%{mozdir} \
---mandir=%{_mandir}
-
-BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make export
-BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 make %{?_smp_mflags} libs
+make -f client.mk build STRIP="/bin/true" MOZ_MAKE_FLAGS="$MOZ_SMP_FLAGS"
 
 %install
 %{__rm} -rf $RPM_BUILD_ROOT
-cd mozilla
+cd %{sources_subdir}
 
-BUILD_OFFICIAL=1 MOZILLA_OFFICIAL=1 \
-	DESTDIR=$RPM_BUILD_ROOT \
-	make install
+DESTDIR=$RPM_BUILD_ROOT make install
 
 # create a list of all of the different package and the files that
 # will hold them
@@ -187,91 +139,53 @@ echo %defattr\(-,root,root\) > %{builddir}/seamonkey.list
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/searchplugins/mozilla.gif
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/searchplugins/mozilla.src
 
-# build all of the default browser components
-# base Seamonkey package (seamonkey.list)
-%{SOURCE7} --package langenus --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
-    --install-dir $RPM_BUILD_ROOT/%{mozdir} \
-    --install-root %{mozdir}
+# Copy over missing components
+install -c -m 644 mozilla/dist/bin/components/*.xpt \
+                  $RPM_BUILD_ROOT/%{mozdir}/components
 
-%{SOURCE7} --package regus --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
-    --install-dir $RPM_BUILD_ROOT/%{mozdir} \
-    --install-root %{mozdir}
-
-%{SOURCE7} --package deflenus --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
-    --install-dir $RPM_BUILD_ROOT/%{mozdir} \
-    --install-root %{mozdir}
-
+# build all of the default browser components 
+# base Seamonkey package (seamonkey.list) 
 %{SOURCE7} --package xpcom --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir} \
     --exclude-file=%{SOURCE18}
 
 %{SOURCE7} --package browser --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package spellcheck --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package psm --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir} \
     --exclude-file=%{SOURCE17}
 
 %{SOURCE7} --package mail --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package chatzilla --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package venkman --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package inspector --output-file %{builddir}/seamonkey.list \
-    --package-file xpinstall/packager/packages-unix \
+    --package-file suite/installer/packages \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
-
-# build our initial component and chrome registry
-
-pushd `pwd`
-  cd $RPM_BUILD_ROOT/%{mozdir}
-
-  # save a copy of the default installed-chrome.txt file before we
-  # muck with it
-  mkdir chrome/lang
-  cp chrome/installed-chrome.txt chrome/lang/
-
-  # set up the default skin and locale to trigger the generation of
-  # the user-locales and users-skins.rdf
-  echo "skin,install,select,classic/1.0" >> chrome/installed-chrome.txt
-  echo "locale,install,select,en-US" >> chrome/installed-chrome.txt
-
-  # save the defaults in a file that will be used later to rebuild the
-  # installed-chrome.txt file
-  echo "skin,install,select,classic/1.0" >> chrome/lang/default.txt
-  echo "locale,install,select,en-US" >> chrome/lang/default.txt
-
-  # fix permissions of the chrome directories
-  /usr/bin/find . -type d -perm 0700 -exec chmod 755 {} \; || :
-
-  # We don't want JS files to be executable
-  /usr/bin/find . -type f -name \*.js -exec chmod 644 {} \; || :
-popd
 
 # set up our desktop files
 %{__mkdir_p} $RPM_BUILD_ROOT/%{_datadir}/pixmaps/
@@ -299,7 +213,8 @@ if [ ! -d $RPM_BUILD_ROOT/%{mozdir}/plugins/ ]; then
 fi
 
 # install our seamonkey.sh file
-cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}/g' \
+rm -rf $RPM_BUILD_ROOT/usr/bin/seamonkey
+cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}%{?prerelease_tag}/g' \
 		     -e 's,LIBDIR,%{_libdir},g' > \
   $RPM_BUILD_ROOT/usr/bin/seamonkey
 
@@ -315,29 +230,11 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 ln -s %{default_bookmarks_file} $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 
-# ghost files
-touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
-for overlay in {"browser","communicator","cookie","editor","global","inspector","messenger","navigator"}; do
-   %{__mkdir_p} $RPM_BUILD_ROOT%{mozdir}/chrome/overlayinfo/$overlay/content
-  touch $RPM_BUILD_ROOT%{mozdir}/chrome/overlayinfo/$overlay/content/overlays.rdf
-done
-for overlay in {"browser","global"}; do
-   %{__mkdir_p} $RPM_BUILD_ROOT%{mozdir}/chrome/overlayinfo/$overlay/skin
-  touch $RPM_BUILD_ROOT%{mozdir}/chrome/overlayinfo/$overlay/skin/stylesheets.rdf
-done
-touch $RPM_BUILD_ROOT%{mozdir}/chrome/chrome.rdf
-%{__mkdir_p} $RPM_BUILD_ROOT%{mozdir}/components/myspell
-touch $RPM_BUILD_ROOT%{mozdir}/components/compreg.dat
-touch $RPM_BUILD_ROOT%{mozdir}/components/xpti.dat
-
-
 %clean
 %{__rm} -rf $RPM_BUILD_ROOT
 
-
 %post
 update-desktop-database %{_datadir}/applications
-
 
 %postun
 update-desktop-database %{_datadir}/applications
@@ -349,32 +246,41 @@ update-desktop-database %{_datadir}/applications
 %{_datadir}/pixmaps/seamonkey-icon.png
 %{_datadir}/pixmaps/seamonkey-mail-icon.png
 
-%ghost %{mozdir}/components/compreg.dat
-%ghost %{mozdir}/components/xpti.dat
+# search engines
+%{mozdir}/searchplugins/*.png
+%{mozdir}/searchplugins/*.src
 
-%doc %{_mandir}/man1/seamonkey.1.gz
+# dictionaries
+%{mozdir}/dictionaries/*
+
+# Profile?
+%{mozdir}/defaults/profile/*
+
+# some rest
+%{mozdir}/chrome/en-US.jar
+%{mozdir}/chrome/en-US.manifest
+%{mozdir}/chrome/reporter.jar
+%{mozdir}/chrome/reporter.manifest
+%{mozdir}/components/*.xpt
+%{mozdir}/defaults/messenger/mailViews.dat
+
+#%doc %{_mandir}/man1/seamonkey.1.gz
 
 %dir %{mozdir}
-%dir %{mozdir}/init.d
 %dir %{mozdir}/defaults/pref
 %dir %{mozdir}/defaults/profile
-%dir %{mozdir}/defaults/profile/US
-%dir %{mozdir}/defaults/wallet
 %dir %{mozdir}/defaults/autoconfig
-%dir %{mozdir}/defaults/messenger/US
 %dir %{mozdir}/defaults/messenger
 %dir %{mozdir}/defaults
 
 %dir %{mozdir}/chrome/icons/default
 %dir %{mozdir}/chrome/icons
-%dir %{mozdir}/chrome/lang
 %dir %{mozdir}/chrome
 
 %dir %{mozdir}/res/dtd
 %dir %{mozdir}/res/fonts
 %dir %{mozdir}/res
 
-%dir %{mozdir}/components/myspell
 %dir %{mozdir}/components
 %dir %{mozdir}/searchplugins
 
@@ -383,52 +289,10 @@ update-desktop-database %{_datadir}/applications
 
 %dir %{mozdir}/plugins
 %dir %{mozdir}/res/html
-%dir %{mozdir}/res/samples
 %dir %{mozdir}/res/entityTables
-
-%verify (not md5 mtime size) %{mozdir}/chrome/installed-chrome.txt
-%{mozdir}/chrome/lang/installed-chrome.txt
-%{mozdir}/chrome/lang/default.txt
 
 %{mozdir}/defaults/pref/all-fedora.js
 
-%ghost %{mozdir}/chrome/chrome.rdf
-
-%ghost %{mozdir}/chrome/overlayinfo/browser/skin/stylesheets.rdf
-%ghost %{mozdir}/chrome/overlayinfo/global/skin/stylesheets.rdf
-
-%ghost %{mozdir}/chrome/overlayinfo/browser/content/overlays.rdf
-%ghost %{mozdir}/chrome/overlayinfo/communicator/content/overlays.rdf
-%ghost %{mozdir}/chrome/overlayinfo/global/content/overlays.rdf
-%ghost %{mozdir}/chrome/overlayinfo/editor/content/overlays.rdf
-%ghost %{mozdir}/chrome/overlayinfo/navigator/content/overlays.rdf
-%ghost %{mozdir}/chrome/overlayinfo/cookie/content/overlays.rdf
-
-%ghost %{mozdir}/chrome/overlayinfo/messenger/content/overlays.rdf
-%ghost %{mozdir}/chrome/overlayinfo/inspector/content/overlays.rdf
-
-%dir %{mozdir}/chrome/overlayinfo/browser/content
-%dir %{mozdir}/chrome/overlayinfo/browser/skin
-%dir %{mozdir}/chrome/overlayinfo/browser
-%dir %{mozdir}/chrome/overlayinfo/global/content
-%dir %{mozdir}/chrome/overlayinfo/global/skin
-%dir %{mozdir}/chrome/overlayinfo/global
-%dir %{mozdir}/chrome/overlayinfo/communicator/content
-%dir %{mozdir}/chrome/overlayinfo/communicator
-%dir %{mozdir}/chrome/overlayinfo/editor/content
-%dir %{mozdir}/chrome/overlayinfo/editor
-%dir %{mozdir}/chrome/overlayinfo/navigator/content
-%dir %{mozdir}/chrome/overlayinfo/navigator
-%dir %{mozdir}/chrome/overlayinfo/cookie/content
-%dir %{mozdir}/chrome/overlayinfo/cookie
-
-%dir %{mozdir}/chrome/overlayinfo/messenger/content
-%dir %{mozdir}/chrome/overlayinfo/messenger
-
-%dir %{mozdir}/chrome/overlayinfo/inspector/content
-%dir %{mozdir}/chrome/overlayinfo/inspector
-
-%dir %{mozdir}/chrome/overlayinfo
 %dir %{mozdir}/greprefs
 
 %{_datadir}/applications/mozilla-%{name}.desktop
@@ -436,6 +300,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Jul 22 2009 Martin Stransky <stransky@redhat.com> 2.0-1.beta1
+- Update to 2.0 beta 1
+
 * Fri Jul 10 2009 Martin Stransky <stransky@redhat.com> 1.1.17-1
 - Update to 1.1.17
 
