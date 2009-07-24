@@ -112,7 +112,7 @@ MOZ_SMP_FLAGS=-j1
 %ifnarch ppc ppc64 s390 s390x
 [ -z "$RPM_BUILD_NCPUS" ] && \
      RPM_BUILD_NCPUS="`/usr/bin/getconf _NPROCESSORS_ONLN`"
-[ "$RPM_BUILD_NCPUS" -gt 1 ] && MOZ_SMP_FLAGS=-j2
+[ "$RPM_BUILD_NCPUS" -gt 1 ] && MOZ_SMP_FLAGS=-j1
 %endif
 
 make -f client.mk build STRIP="/bin/true" MOZ_MAKE_FLAGS="$MOZ_SMP_FLAGS"
