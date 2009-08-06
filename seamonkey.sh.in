@@ -86,6 +86,11 @@ fi
 export MOZ_PLUGIN_PATH
 
 ##
+## Set MOZ_APP_LAUNCHER for gnome-session
+##
+export MOZ_APP_LAUNCHER="/usr/bin/seamonkey"
+
+##
 ## Set MOZ_ENABLE_PANGO is no longer used because Pango is enabled by default
 ## you may use MOZ_DISABLE_PANGO=1 to force disabling of pango
 ##

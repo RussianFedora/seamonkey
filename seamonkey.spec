@@ -18,7 +18,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0
-Release:        1.beta1%{?dist}
+Release:        2.beta1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -341,6 +341,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Aug 6 2009 Martin Stransky <stransky@redhat.com> 2.0-2.beta1
+- Added fix for #437596
+
 * Wed Jul 22 2009 Martin Stransky <stransky@redhat.com> 2.0-1.beta1
 - Update to 2.0 beta 1
 
