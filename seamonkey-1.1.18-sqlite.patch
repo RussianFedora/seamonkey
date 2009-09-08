@@ -1,0 +1,29 @@
+diff -up seamonkey-1.1.18/mozilla/db/sqlite3/src/Makefile.in.old seamonkey-1.1.18/mozilla/db/sqlite3/src/Makefile.in
+--- seamonkey-1.1.18/mozilla/db/sqlite3/src/Makefile.in.old	2009-08-10 19:59:12.000000000 +0200
++++ seamonkey-1.1.18/mozilla/db/sqlite3/src/Makefile.in	2009-09-08 13:14:23.000000000 +0200
+@@ -44,9 +44,9 @@ VPATH		= @srcdir@
+ include $(DEPTH)/config/autoconf.mk
+ 
+ MODULE           = sqlite3
+-LIBRARY_NAME     = sqlite3
++LIBRARY_NAME     = sqlite3_s
+ MODULE_NAME      = sqlite3
+-FORCE_SHARED_LIB = 1
++FORCE_STATIC_LIB = 1
+ VISIBILITY_FLAGS =
+ 
+ ifeq (,$(filter-out WINNT WINCE, $(OS_ARCH)))
+diff -up seamonkey-1.1.18/mozilla/storage/build/Makefile.in.old seamonkey-1.1.18/mozilla/storage/build/Makefile.in
+--- seamonkey-1.1.18/mozilla/storage/build/Makefile.in.old	2009-08-07 22:37:55.000000000 +0200
++++ seamonkey-1.1.18/mozilla/storage/build/Makefile.in	2009-09-08 13:16:20.000000000 +0200
+@@ -69,9 +69,8 @@ LOCAL_INCLUDES = \
+ 
+ SHARED_LIBRARY_LIBS = \
+ 	$(DIST)/lib/$(LIB_PREFIX)storage_s.$(LIB_SUFFIX) \
++	$(DIST)/lib/$(LIB_PREFIX)sqlite3_s.$(LIB_SUFFIX) \
+ 	$(NULL)
+- 
+-EXTRA_DSO_LIBS += sqlite3
+ 
+ EXTRA_DSO_LDOPTS += \
+ 	$(LIBS_DIR) \

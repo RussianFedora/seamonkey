@@ -11,7 +11,7 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        1.1.17
+Version:        1.1.18
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
@@ -51,6 +51,7 @@ Patch220:       seamonkey-fedora-home-page.patch
 Patch225:       mozilla-nspr-packages.patch
 Patch301:       mozilla-1.7.3-gnome-vfs-default-app.patch
 Patch304:       mozilla-1.7.5-g-application-name.patch
+Patch305:       seamonkey-1.1.18-sqlite.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -139,6 +140,7 @@ cd mozilla
 %patch225 -p1
 %patch301 -p1
 %patch304 -p0
+%patch305 -p2 -b .sqlite
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -437,6 +439,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Tue Sep 8 2009 Martin Stransky <stransky@redhat.com> 1.1.18-1
+- Update to 1.1.18
+
 * Fri Jul 10 2009 Martin Stransky <stransky@redhat.com> 1.1.17-1
 - Update to 1.1.17
 
