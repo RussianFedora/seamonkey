@@ -5,6 +5,8 @@
 %define minimum_build_nss_version 3.12
 
 %define _unpackaged_files_terminate_build 0
+%define _default_patch_fuzz 2
+
 %define builddir %{_builddir}/%{name}-%{version}
 %define mozdir %{_libdir}/seamonkey-%{version}
 
