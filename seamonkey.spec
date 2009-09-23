@@ -39,6 +39,7 @@ Source100:      find-external-requires
 
 Patch0:         mozilla-jemalloc.patch
 Patch1:         mozilla-191-path.patch
+Patch2:         seamonkey-2.0-hunspell.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -97,6 +98,7 @@ cd %{sources_subdir}
 
 %patch0 -p0 -b .jemalloc
 %patch1 -p0 -b .path
+%patch2 -p2 -b .hunspell
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
