@@ -63,6 +63,7 @@ BuildRequires:  libXrender-devel
 BuildRequires:  fileutils
 BuildRequires:  perl
 BuildRequires:  alsa-lib-devel
+BuildRequires:  hunspell-devel
 BuildRequires:  system-bookmarks
 Requires:       system-bookmarks
 Requires:       mozilla-filesystem
