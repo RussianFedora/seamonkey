@@ -24,7 +24,7 @@ License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}-20090923.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20091013.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
