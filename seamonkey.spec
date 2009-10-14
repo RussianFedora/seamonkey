@@ -5,26 +5,26 @@
 %define minimum_build_nspr_version 4.7.2
 %define minimum_build_nss_version 3.12
 
-%define prerelease_tag b2
+%define prerelease_tag rc1
 
 %define build_langpacks 1
 
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/%{name}-%{version}
-%define mozdir %{_libdir}/seamonkey-%{version}%{?prerelease_tag}
+%define mozdir %{_libdir}/seamonkey-%{version}
 %define sources_subdir comm-central
 
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0
-Release:        3.beta2%{?dist}
+Release:        4%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}%{?prerelease_tag}-20090923.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20090923.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -39,7 +39,6 @@ Source100:      find-external-requires
 
 Patch0:         mozilla-jemalloc.patch
 Patch1:         mozilla-191-path.patch
-Patch2:         seamonkey-2.0-hunspell.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -98,7 +97,6 @@ cd %{sources_subdir}
 
 %patch0 -p0 -b .jemalloc
 %patch1 -p0 -b .path
-%patch2 -p2 -b .hunspell
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -344,6 +342,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Oct 14 2009 Martin Stransky <stransky@redhat.com> 2.0-4
+- Update to 2.0 RC1
+
 * Wed Sep 23 2009 Martin Stransky <stransky@redhat.com> 2.0-3.beta2
 - Update to 2.0 beta 2
 
