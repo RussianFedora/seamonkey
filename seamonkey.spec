@@ -5,7 +5,7 @@
 %define minimum_build_nspr_version 4.7.2
 %define minimum_build_nss_version 3.12
 
-%define prerelease_tag rc1
+%define prerelease_tag rc2
 
 %define build_langpacks 1
 
@@ -18,13 +18,13 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}-20091013.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20091019.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -342,6 +342,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Oct 19 2009 Martin Stransky <stransky@redhat.com> 2.0-5
+- Update to 2.0 RC2
+
 * Wed Oct 14 2009 Martin Stransky <stransky@redhat.com> 2.0-4
 - Update to 2.0 RC1
 
