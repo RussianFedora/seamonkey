@@ -18,7 +18,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -117,7 +117,7 @@ MOZ_SMP_FLAGS=-j1
 %ifnarch ppc ppc64 s390 s390x
 [ -z "$RPM_BUILD_NCPUS" ] && \
      RPM_BUILD_NCPUS="`/usr/bin/getconf _NPROCESSORS_ONLN`"
-[ "$RPM_BUILD_NCPUS" -gt 1 ] && MOZ_SMP_FLAGS=-j1
+[ "$RPM_BUILD_NCPUS" -gt 1 ] && MOZ_SMP_FLAGS=-j2
 %endif
 
 make -f client.mk build STRIP="/bin/true" MOZ_MAKE_FLAGS="$MOZ_SMP_FLAGS"
@@ -255,7 +255,7 @@ fi
 
 # install our seamonkey.sh file
 rm -rf $RPM_BUILD_ROOT/usr/bin/seamonkey
-cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}%{?prerelease_tag}/g' \
+cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}/g' \
 		     -e 's,LIBDIR,%{_libdir},g' > \
   $RPM_BUILD_ROOT/usr/bin/seamonkey
 
@@ -342,10 +342,13 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
-* Wed Oct 19 2009 Martin Stransky <stransky@redhat.com> 2.0-5
+* Tue Oct 21 2009 Martin Stransky <stransky@redhat.com> 2.0-6
+- Fixed launcher script
+
+* Tue Oct 19 2009 Martin Stransky <stransky@redhat.com> 2.0-5
 - Update to 2.0 RC2
 
-* Wed Oct 14 2009 Martin Stransky <stransky@redhat.com> 2.0-4
+* Tue Oct 13 2009 Martin Stransky <stransky@redhat.com> 2.0-4
 - Update to 2.0 RC1
 
 * Wed Sep 23 2009 Martin Stransky <stransky@redhat.com> 2.0-3.beta2
