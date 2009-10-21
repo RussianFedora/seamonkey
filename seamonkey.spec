@@ -18,7 +18,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -255,7 +255,7 @@ fi
 
 # install our seamonkey.sh file
 rm -rf $RPM_BUILD_ROOT/usr/bin/seamonkey
-cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}%{?prerelease_tag}/g' \
+cat %{SOURCE3} | sed -e 's/MOZILLA_VERSION/%{version}/g' \
 		     -e 's,LIBDIR,%{_libdir},g' > \
   $RPM_BUILD_ROOT/usr/bin/seamonkey
 
@@ -342,6 +342,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Tue Oct 21 2009 Martin Stransky <stransky@redhat.com> 2.0-6
+- Fixed launcher script
+
 * Tue Oct 19 2009 Martin Stransky <stransky@redhat.com> 2.0-5
 - Update to 2.0 RC2
 
