@@ -15,14 +15,14 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        2.0.6
+Version:        2.0.8
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}-20100720.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20100922.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -197,7 +197,7 @@ echo > ../%{name}.lang
 %{__mkdir_p} $RPM_BUILD_ROOT/%{mozdir}/extensions
 %{__tar} xjf %{SOURCE1}
 for langpack in `ls seamonkey-langpacks/*.xpi`; do
-  language=`basename $langpack .xpi`
+  language=$(basename $langpack .langpack.xpi | %{__sed} -e 's/%{name}-%{version}.//')
   extensiondir=$RPM_BUILD_ROOT/%{mozdir}/extensions/langpack-$language@seamonkey.mozilla.org
   %{__mkdir_p} $extensiondir
   unzip $langpack -d $extensiondir
@@ -338,8 +338,16 @@ update-desktop-database %{_datadir}/applications
 %{_datadir}/applications/mozilla-%{name}.desktop
 %{_datadir}/applications/mozilla-%{name}-mail.desktop
 
+%ghost %{mozdir}/.autoreg
+%ghost %{mozdir}/update.locale
+%ghost %{mozdir}/updater.ini    
+%ghost %{mozdir}/removed-files
+
 
 %changelog
+* Wed Sep 22 2010 Martin Stransky <stransky@redhat.com> 2.0.8-1
+- Update to 2.0.8
+
 * Tue Jul 20 2010 Martin Stransky <stransky@redhat.com> 2.0.6-1
 - Update to 2.0.6
 
