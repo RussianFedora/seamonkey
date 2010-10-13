@@ -16,7 +16,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -37,6 +37,7 @@ Source100:      find-external-requires
 
 Patch0:         mozilla-jemalloc.patch
 Patch1:         mozilla-191-path.patch
+Patch2:         seamonkey-522635.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -95,6 +96,7 @@ cd %{sources_subdir}
 
 %patch0 -p0 -b .jemalloc
 %patch1 -p0 -b .path
+%patch2 -p2 -b .522635
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -345,6 +347,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Wed Oct 13 2010 Martin Stransky <stransky@redhat.com> 2.0.8-2
+- Added fix for mozbz#522635
+
 * Wed Sep 22 2010 Martin Stransky <stransky@redhat.com> 2.0.8-1
 - Update to 2.0.8
 
