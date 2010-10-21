@@ -15,14 +15,14 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        2.0.8
-Release:        2%{?dist}
+Version:        2.0.9
+Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}-20100922.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20101021.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -347,6 +347,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Oct 21 2010 Martin Stransky <stransky@redhat.com> 2.0.9-1
+- Update to 2.0.9
+
 * Wed Oct 13 2010 Martin Stransky <stransky@redhat.com> 2.0.8-2
 - Added fix for mozbz#522635
 
