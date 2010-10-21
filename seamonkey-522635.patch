@@ -1,0 +1,63 @@
+diff -up seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.cpp.old seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.cpp
+--- seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.cpp.old	2010-09-14 22:34:19.000000000 +0200
++++ seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.cpp	2010-10-07 16:03:02.000000000 +0200
+@@ -788,10 +788,6 @@ nsWindow::Destroy(void)
+         mWindowGroup = nsnull;
+     }
+ 
+-    // Destroy thebes surface now. Badness can happen if we destroy
+-    // the surface after its X Window.
+-    mThebesSurface = nsnull;
+-
+     if (mDragMotionTimerID) {
+         gtk_timeout_remove(mDragMotionTimerID);
+         mDragMotionTimerID = 0;
+@@ -7158,25 +7154,25 @@ nsWindow::GetThebesSurface()
+     width = PR_MIN(32767, width);
+     height = PR_MIN(32767, height);
+ 
+-    mThebesSurface = new gfxXlibSurface
++    gfxASurface* thebesSurface = new gfxXlibSurface
+         (GDK_WINDOW_XDISPLAY(d),
+          GDK_WINDOW_XWINDOW(d),
+          GDK_VISUAL_XVISUAL(gdk_drawable_get_visual(d)),
+          gfxIntSize(width, height));
+ #endif
+ #ifdef MOZ_DFB
+-    mThebesSurface = new gfxDirectFBSurface(gdk_directfb_surface_lookup(d));
++    gfxASurface* thebesSurface = new gfxDirectFBSurface(gdk_directfb_surface_lookup(d));
+ #endif
+ 
+     // if the surface creation is reporting an error, then
+     // we don't have a surface to give back
+-    if (mThebesSurface && mThebesSurface->CairoStatus() != 0) {
+-        mThebesSurface = nsnull;
++    if (thebesSurface && thebesSurface->CairoStatus() != 0) {
++        thebesSurface = nsnull;
+     } else {
+-        mThebesSurface->SetDeviceOffset(gfxPoint(-x_offset, -y_offset));
++        thebesSurface->SetDeviceOffset(gfxPoint(-x_offset, -y_offset));
+     }
+ 
+-    return mThebesSurface;
++    return thebesSurface;
+ }
+ 
+ NS_IMETHODIMP
+diff -up seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.h.old seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.h
+--- seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.h.old	2010-09-14 22:34:19.000000000 +0200
++++ seamonkey-2.0.8/comm-1.9.1/mozilla/widget/src/gtk2/nsWindow.h	2010-10-07 16:02:18.000000000 +0200
+@@ -510,8 +510,6 @@ private:
+     PRInt32             mTransparencyBitmapWidth;
+     PRInt32             mTransparencyBitmapHeight;
+ 
+-    nsRefPtr<gfxASurface> mThebesSurface;
+-
+ #ifdef MOZ_DFB
+     int                    mDFBCursorX;
+     int                    mDFBCursorY;
+@@ -612,4 +610,3 @@ public:
+ };
+ 
+ #endif /* __nsWindow_h__ */
+-

@@ -15,14 +15,14 @@
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        2.0.8
+Version:        2.0.9
 Release:        1%{?dist}
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
 Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}-20100922.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20101021.tar.bz2
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -37,6 +37,7 @@ Source100:      find-external-requires
 
 Patch0:         mozilla-jemalloc.patch
 Patch1:         mozilla-191-path.patch
+Patch2:         seamonkey-522635.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
@@ -95,6 +96,7 @@ cd %{sources_subdir}
 
 %patch0 -p0 -b .jemalloc
 %patch1 -p0 -b .path
+%patch2 -p2 -b .522635
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -197,7 +199,7 @@ echo > ../%{name}.lang
 %{__mkdir_p} $RPM_BUILD_ROOT/%{mozdir}/extensions
 %{__tar} xjf %{SOURCE1}
 for langpack in `ls seamonkey-langpacks/*.xpi`; do
-  language=$(basename $langpack .langpack.xpi | %{__sed} -e 's/%{name}-%{version}.//')
+  language=$(basename $langpack .xpi | %{__sed} -e 's/%{name}-%{version}.//')
   extensiondir=$RPM_BUILD_ROOT/%{mozdir}/extensions/langpack-$language@seamonkey.mozilla.org
   %{__mkdir_p} $extensiondir
   unzip $langpack -d $extensiondir
@@ -345,6 +347,12 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Oct 21 2010 Martin Stransky <stransky@redhat.com> 2.0.9-1
+- Update to 2.0.9
+
+* Wed Oct 13 2010 Martin Stransky <stransky@redhat.com> 2.0.8-2
+- Added fix for mozbz#522635
+
 * Wed Sep 22 2010 Martin Stransky <stransky@redhat.com> 2.0.8-1
 - Update to 2.0.8
 
