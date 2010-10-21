@@ -199,7 +199,7 @@ echo > ../%{name}.lang
 %{__mkdir_p} $RPM_BUILD_ROOT/%{mozdir}/extensions
 %{__tar} xjf %{SOURCE1}
 for langpack in `ls seamonkey-langpacks/*.xpi`; do
-  language=$(basename $langpack .langpack.xpi | %{__sed} -e 's/%{name}-%{version}.//')
+  language=$(basename $langpack .xpi | %{__sed} -e 's/%{name}-%{version}.//')
   extensiondir=$RPM_BUILD_ROOT/%{mozdir}/extensions/langpack-$language@seamonkey.mozilla.org
   %{__mkdir_p} $extensiondir
   unzip $langpack -d $extensiondir
