@@ -16,7 +16,7 @@
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
 Version:        2.0.11
-Release:        1%{?dist}
+Release:        1%{?dist}.1
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
@@ -345,6 +345,9 @@ update-desktop-database %{_datadir}/applications
 
 
 %changelog
+* Thu Dec 23 2010 Arkady L. Shane <ashejn@yandex-team.ru> 2.0.11-1.1
+- disable system cairo to fix rf#416 and rf#628331
+
 * Mon Dec 13 2010 Martin Stransky <stransky@redhat.com> 2.0.11-1
 - Update to 2.0.11
 
