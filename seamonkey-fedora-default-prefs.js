@@ -3,3 +3,5 @@ pref("general.smoothScroll",                true);
 pref("general.useragent.vendor", "Fedora");
 pref("general.useragent.vendorSub", "SEAMONKEY_RPM_VR");
 pref("update_notifications.enabled", false);
+pref("extensions.shownSelectionUI",         true);
+pref("extensions.autoDisableScope",         0);

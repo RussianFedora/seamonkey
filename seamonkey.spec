@@ -1,28 +1,28 @@
-%define homepage http://start.fedoraproject.org/
+%define homepage http://russianfedora.ru/
 %define default_bookmarks_file %{_datadir}/bookmarks/default-bookmarks.html
 %define cairo_version 0.5
 
-%define minimum_build_nspr_version 4.7.2
-%define minimum_build_nss_version 3.12
+%define minimum_build_nspr_version 4.8.9
+%define minimum_build_nss_version 3.13.1
 
 %define build_langpacks 1
 
 %define _unpackaged_files_terminate_build 0
 %define builddir %{_builddir}/%{name}-%{version}
 %define mozdir %{_libdir}/seamonkey-%{version}
-%define sources_subdir comm-1.9.1
+%define sources_subdir comm-release
 
 
 Name:           seamonkey
 Summary:        Web browser, e-mail, news, IRC client, HTML editor
-Version:        2.0.11
-Release:        1%{?dist}
+Version:        2.7.1
+Release:        1%{?dist}.R
 URL:            http://www.mozilla.org/projects/seamonkey/
 License:        MPLv1.1
 Group:          Applications/Internet
 
-Source0:        seamonkey-%{version}%{?prerelease_tag}.source.tar.bz2
-Source1:        seamonkey-langpacks-%{version}-20101213.tar.bz2
+Source0:        ftp://ftp.mozilla.org/pub/seamonkey/releases/%{version}/source/seamonkey-%{version}.source.tar.bz2
+Source1:        seamonkey-langpacks-%{version}-20120214.tar.xz
 Source2:        seamonkey-icon.png
 Source3:        seamonkey.sh.in
 Source4:        seamonkey.desktop
@@ -35,13 +35,10 @@ Source18:       mozilla-xpcom-exclude-list
 Source20:       seamonkey-fedora-default-prefs.js
 Source100:      find-external-requires
 
-Patch0:         mozilla-jemalloc.patch
-Patch1:         mozilla-191-path.patch
+Patch1:         xulrunner-10.0-gcc47.patch
+Patch5:         seamonkey-8.0-enable-addons.patch
 
 Buildroot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  nspr-devel >= %{minimum_build_nspr_version}
-BuildRequires:  nss-devel >= %{minimum_build_nss_version}
-BuildRequires:  cairo-devel >= %{cairo_version}
 BuildRequires:  libpng-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  zlib-devel
@@ -49,6 +46,7 @@ BuildRequires:  zip
 BuildRequires:  libIDL-devel
 BuildRequires:  desktop-file-utils
 BuildRequires:  gtk2-devel
+BuildRequires:  dbus-glib-devel
 BuildRequires:  gnome-vfs2-devel
 BuildRequires:  libgnome-devel
 BuildRequires:  libgnomeui-devel
@@ -63,10 +61,11 @@ BuildRequires:  perl
 BuildRequires:  alsa-lib-devel
 BuildRequires:  hunspell-devel
 BuildRequires:  system-bookmarks
+BuildRequires:  libnotify-devel
+BuildRequires:  yasm
+BuildRequires:  mesa-libGL-devel
 Requires:       system-bookmarks
 Requires:       mozilla-filesystem
-Requires:       nspr >= %{minimum_build_nspr_version}
-Requires:       nss >= %{minimum_build_nss_version}
 
 Obsoletes: seamonkey-chat
 Obsoletes: seamonkey-devel
@@ -93,8 +92,13 @@ application formerly known as Mozilla Application Suite.
 %setup -q -c
 cd %{sources_subdir}
 
-%patch0 -p0 -b .jemalloc
-%patch1 -p0 -b .path
+%if 0%{?fedora} >= 17
+cd mozilla
+%patch1 -p1 -b .gcc47
+cd ..
+%endif
+
+%patch5 -p2 -b .addons
 
 %{__rm} -f .mozconfig
 %{__cp} %{SOURCE10} .mozconfig
@@ -102,9 +106,13 @@ cd %{sources_subdir}
 %build
 cd %{sources_subdir}
 
-# Mozilla builds with -Wall with exception of a few warnings which show up 
-# everywhere in the code; so, don't override that. 
-MOZ_OPT_FLAGS=$(echo $RPM_OPT_FLAGS | %{__sed} -e 's/-Wall//')
+# Mozilla builds with -Wall with exception of a few warnings which show up
+# everywhere in the code; so, don't override that.
+#
+# Disable C++ exceptions since Mozilla code is not exception-safe
+#
+MOZ_OPT_FLAGS=$(echo $RPM_OPT_FLAGS | \
+                     %{__sed} -e 's/-Wall//' -e 's/-fexceptions/-fno-exceptions/g')
 export CFLAGS=$MOZ_OPT_FLAGS
 export CXXFLAGS=$MOZ_OPT_FLAGS
 
@@ -126,6 +134,12 @@ cd %{sources_subdir}
 
 DESTDIR=$RPM_BUILD_ROOT make install
 
+# fix omni.jar to actually work
+pushd mozilla/dist/bin
+zip -d $RPM_BUILD_ROOT/%{mozdir}/omni.ja components/browser.xpt components/mail.xpt components/components.manifest chrome/localized.manifest chrome/nonlocalized.manifest
+zip -9r $RPM_BUILD_ROOT/%{mozdir}/omni.ja chrome.manifest components/*.xpt chrome/*.manifest components/*.manifest components/*.js
+popd
+
 # create a list of all of the different package and the files that
 # will hold them
 
@@ -143,51 +157,51 @@ echo %defattr\(-,root,root\) > %{builddir}/seamonkey.list
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/searchplugins/mozilla.gif
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/searchplugins/mozilla.src
 
-# Copy over missing components
-install -c -m 644 mozilla/dist/bin/components/*.xpt \
-                  $RPM_BUILD_ROOT/%{mozdir}/components
+## Copy over missing components
+#install -c -m 644 mozilla/dist/bin/components/*.xpt \
+#                  $RPM_BUILD_ROOT/%{mozdir}/components
 
 # build all of the default browser components 
 # base Seamonkey package (seamonkey.list) 
 %{SOURCE7} --package xpcom --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir} \
     --exclude-file=%{SOURCE18}
 
 %{SOURCE7} --package browser --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package spellcheck --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package psm --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir} \
     --exclude-file=%{SOURCE17}
 
 %{SOURCE7} --package mail --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package chatzilla --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package venkman --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
 %{SOURCE7} --package inspector --output-file %{builddir}/seamonkey.list \
-    --package-file suite/installer/packages \
+    --package-file suite/installer/package-manifest \
     --install-dir $RPM_BUILD_ROOT/%{mozdir} \
     --install-root %{mozdir}
 
@@ -195,29 +209,32 @@ echo > ../%{name}.lang
 %if %{build_langpacks}
 # Install langpacks 
 %{__mkdir_p} $RPM_BUILD_ROOT/%{mozdir}/extensions
-%{__tar} xjf %{SOURCE1}
+%{__tar} xf %{SOURCE1}
 for langpack in `ls seamonkey-langpacks/*.xpi`; do
-  language=$(basename $langpack .xpi | %{__sed} -e 's/%{name}-%{version}.//')
+  language=$(basename $langpack .xpi | sed 's/^seamonkey-//' | sed 's/\.langpack$//' | sed 's/\([0-9]\.\)*//')
   extensiondir=$RPM_BUILD_ROOT/%{mozdir}/extensions/langpack-$language@seamonkey.mozilla.org
   %{__mkdir_p} $extensiondir
   unzip $langpack -d $extensiondir
   find $extensiondir -type f | xargs chmod 644
 
-  tmpdir=`mktemp -d %{name}.XXXXXXXX`
-  langtmp=$tmpdir/%{name}/langpack-$language
-  %{__mkdir_p} $langtmp
+#  tmpdir=`mktemp -d %{name}.XXXXXXXX`
+#  langtmp=$tmpdir/%{name}/langpack-$language
+#  %{__mkdir_p} $langtmp
   jarfile=$extensiondir/chrome/$language.jar
-  unzip $jarfile -d $langtmp
+#  unzip $jarfile -d $langtmp
 
+#  sed -i -e "s|browser.startup.homepage.*$|browser.startup.homepage=%{homepage}|g;" \
+#         $langtmp/locale/$language/navigator-region/region.properties
   sed -i -e "s|browser.startup.homepage.*$|browser.startup.homepage=%{homepage}|g;" \
-         $langtmp/locale/$language/navigator-region/region.properties
+         $extensiondir/chrome/$language/locale/$language/navigator-region/region.properties
 
-  find $langtmp -type f | xargs chmod 644
-  %{__rm} -rf $jarfile
-  cd $langtmp
+#  find $langtmp -type f | xargs chmod 644
+#  %{__rm} -rf $jarfile
+#  cd $langtmp
+  cd $extensiondir/chrome/$language
   zip -r -D $jarfile locale
   cd -
-  %{__rm} -rf $tmpdir
+#  %{__rm} -rf $tmpdir
 
   language=`echo $language | sed -e 's/-/_/g'`
   extensiondir=`echo $extensiondir | sed -e "s,^$RPM_BUILD_ROOT,,"`
@@ -269,6 +286,8 @@ chmod 755 $RPM_BUILD_ROOT/usr/bin/seamonkey
 %{__rm} -f $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 ln -s %{default_bookmarks_file} $RPM_BUILD_ROOT/%{mozdir}/defaults/profile/bookmarks.html
 
+rm -f $RPM_BUILD_ROOT%{mozappdir}/*.chk
+
 %clean
 %{__rm} -rf $RPM_BUILD_ROOT
 
@@ -286,8 +305,7 @@ update-desktop-database %{_datadir}/applications
 %{_datadir}/pixmaps/seamonkey-mail-icon.png
 
 # search engines
-%{mozdir}/searchplugins/*.png
-%{mozdir}/searchplugins/*.src
+%{mozdir}/searchplugins/*.xml
 
 # dictionaries
 %{mozdir}/dictionaries/*
@@ -296,11 +314,11 @@ update-desktop-database %{_datadir}/applications
 %{mozdir}/defaults/profile/*
 
 # some rest
-%{mozdir}/chrome/en-US.jar
-%{mozdir}/chrome/en-US.manifest
-%{mozdir}/chrome/reporter.jar
-%{mozdir}/chrome/reporter.manifest
-%{mozdir}/components/*.xpt
+%{mozdir}/omni.ja
+%{mozdir}/chrome.manifest
+%{mozdir}/components/binary.manifest
+#%{mozdir}/components/*.xpt
+%{mozdir}/components/*.so
 %{mozdir}/defaults/messenger/mailViews.dat
 %{mozdir}/extensions/*
 
@@ -309,7 +327,6 @@ update-desktop-database %{_datadir}/applications
 %dir %{mozdir}
 %dir %{mozdir}/defaults/pref
 %dir %{mozdir}/defaults/profile
-%dir %{mozdir}/defaults/autoconfig
 %dir %{mozdir}/defaults/messenger
 %dir %{mozdir}/defaults
 
@@ -317,9 +334,6 @@ update-desktop-database %{_datadir}/applications
 %dir %{mozdir}/chrome/icons
 %dir %{mozdir}/chrome
 
-%dir %{mozdir}/res/dtd
-%dir %{mozdir}/res/fonts
-%dir %{mozdir}/res
 
 %dir %{mozdir}/components
 %dir %{mozdir}/searchplugins
@@ -328,23 +342,70 @@ update-desktop-database %{_datadir}/applications
 %dir %{mozdir}/dictionaries
 
 %dir %{mozdir}/plugins
-%dir %{mozdir}/res/html
-%dir %{mozdir}/res/entityTables
 
 %{mozdir}/defaults/pref/all-fedora.js
-
-%dir %{mozdir}/greprefs
 
 %{_datadir}/applications/mozilla-%{name}.desktop
 %{_datadir}/applications/mozilla-%{name}-mail.desktop
 
-%ghost %{mozdir}/.autoreg
-%ghost %{mozdir}/update.locale
-%ghost %{mozdir}/updater.ini    
 %ghost %{mozdir}/removed-files
 
 
 %changelog
+* Wed Feb 22 2012 Arkady L. Shane <ashejn@russianfedora.ru> 2.7.1-1.R
+- rebuilt for EL6
+
+* Tue Feb 14 2012 Martin Stransky <stransky@redhat.com> 2.7.1-1
+- Update to 2.7.1
+
+* Mon Feb  6 2012 Martin Stransky <stransky@redhat.com> 2.7-2
+- gcc 4.7 build fixes
+
+* Fri Feb  3 2012 Martin Stransky <stransky@redhat.com> 2.7-1
+- Update to 2.7
+
+* Sat Jan 14 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.5-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
+* Wed Dec 14 2011 Martin Stransky <stransky@redhat.com> 2.5-2
+- Fixed langpacks
+
+* Thu Dec  8 2011 Martin Stransky <stransky@redhat.com> 2.5-1
+- Update to 2.5
+
+* Fri Oct 14 2011 Dan Horák <dan[at]danny.cz> - 2.4.1-3
+- fix build on secondary arches
+
+* Tue Oct 11 2011 Kai Engert <kaie@redhat.com> - 2.4.1-2
+- Update to 2.4.1
+
+* Tue Sep 06 2011 Kai Engert <kaie@redhat.com> - 2.3.3-2
+- Update to 2.3.3
+ 
+* Sun Aug 21 2011 Kai Engert <kaie@redhat.com> - 2.3-2
+- Update to 2.3
+ 
+* Wed May 25 2011 Caolán McNamara <caolanm@redhat.com> - 2.0.14-2
+- rebuild for new hunspell
+
+* Fri Apr 29 2011 Jan Horak <jhorak@redhat.com> - 2.0.14-1
+- Update to 2.0.14
+
+* Sat Apr  9 2011 Christopher Aillon <caillon@redhat.com> 2.0.13-1
+- Update to 2.0.13
+
+* Mon Mar  7 2011 Martin Stransky <stransky@redhat.com> 2.0.12-1
+- Update to 2.0.12
+
+* Wed Feb 09 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0.11-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
+
+* Tue Jan 04 2011 Adel Gadllah <adel.gadllah@gmail.com> 2.0.11-3
+- BR dbus-glib-devel
+
+* Tue Jan 04 2011 Adel Gadllah <adel.gadllah@gmail.com> 2.0.11-2
+- disabled system cairo, breaks animated gifs (rhbz#628331)
+
 * Mon Dec 13 2010 Martin Stransky <stransky@redhat.com> 2.0.11-1
 - Update to 2.0.11
 
